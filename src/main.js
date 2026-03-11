@@ -608,7 +608,6 @@ const render = () => {
 
         <section class="menu-section">
           <div class="menu-section-head">
-            <button class="menu-section-action" type="button" data-empty-trash ${trashedTasks.length ? '' : 'disabled'}>Empty</button>
             <button class="menu-section-toggle" type="button" data-toggle-menu-section="trash" aria-expanded="${!isTrashSectionCollapsed}">
               <h3 class="menu-section-title">Trash (${trashedTasks.length})</h3>
               <i class="bi ${isTrashSectionCollapsed ? 'bi-chevron-right' : 'bi-chevron-down'}" aria-hidden="true"></i>
@@ -617,6 +616,7 @@ const render = () => {
           <ul class="menu-task-list ${isTrashSectionCollapsed ? 'is-collapsed' : ''}">
             ${trashedTasks.length ? trashedTasks.map(taskMenuPreview).join('') : '<li class="menu-task-empty">Trash is empty</li>'}
           </ul>
+          <button class="menu-section-action menu-section-action-bottom ${isTrashSectionCollapsed ? 'is-collapsed' : ''}" type="button" data-empty-trash ${trashedTasks.length ? '' : 'disabled'}>Empty</button>
         </section>
       </aside>
 

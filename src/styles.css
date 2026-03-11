@@ -200,6 +200,11 @@ button {
   padding: 0;
 }
 
+.menu-section-action-bottom {
+  margin-top: 8px;
+  justify-self: end;
+}
+
 .menu-section-action:disabled {
   opacity: 0.4;
   cursor: not-allowed;

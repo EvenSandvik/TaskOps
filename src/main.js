@@ -78,12 +78,14 @@ const getTimelineHtml = (notes) => {
   }
 
   return notes
-    .toSorted((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+    .toSorted((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
     .map(
       (note) => `
         <li class="timeline-item">
-          <p class="timeline-note">${linkifyText(note.text)}</p>
-          <time class="timeline-time" datetime="${new Date(note.createdAt).toISOString()}">${escapeHtml(formatNoteTime(note.createdAt))}</time>
+          <div class="timeline-content">
+            <time class="timeline-time" datetime="${new Date(note.createdAt).toISOString()}">${escapeHtml(formatNoteTime(note.createdAt))}</time>
+            <p class="timeline-note">${linkifyText(note.text)}</p>
+          </div>
         </li>
       `,
     )
@@ -269,41 +271,43 @@ const addTaskNote = (taskId, text) => {
 };
 
 const taskCard = (task) => `
-  <article class="task-card" data-task-card data-task-id="${task.id}">
-    <div class="task-card-header">
-      <button
-        class="drag-task-button"
-        type="button"
-        draggable="true"
-        aria-label="Drag task ${task.id} to trash"
-        title="Drag to trash"
-        data-drag-task
+  <section class="task-column" data-task-column data-task-id="${task.id}">
+    <article class="task-card" data-task-card data-task-id="${task.id}">
+      <div class="task-card-header">
+        <button
+          class="drag-task-button"
+          type="button"
+          draggable="true"
+          aria-label="Drag task ${task.id} to trash"
+          title="Drag to trash"
+          data-drag-task
+          data-task-id="${task.id}"
+        >
+          ⋮⋮
+        </button>
+        <input
+          class="task-title"
+          type="text"
+          value="${escapeHtml(task.title)}"
+          aria-label="Task title ${task.id}"
+          data-task-input="title"
+          data-task-id="${task.id}"
+        />
+      </div>
+      <textarea
+        class="task-details task-details-input"
+        rows="8"
+        placeholder="${DETAILS_PLACEHOLDER}"
+        aria-label="Task details ${task.id}"
+        data-task-input="details"
         data-task-id="${task.id}"
-      >
-        ⋮⋮
-      </button>
-      <input
-        class="task-title"
-        type="text"
-        value="${escapeHtml(task.title)}"
-        aria-label="Task title ${task.id}"
-        data-task-input="title"
-        data-task-id="${task.id}"
-      />
-    </div>
-    <textarea
-      class="task-details task-details-input"
-      rows="8"
-      placeholder="${DETAILS_PLACEHOLDER}"
-      aria-label="Task details ${task.id}"
-      data-task-input="details"
-      data-task-id="${task.id}"
-    >${escapeHtml(task.details)}</textarea>
-    <div class="task-links-preview" data-task-links-preview data-task-id="${task.id}">
-      ${getDetailsPreviewHtml(task.details)}
-    </div>
+      >${escapeHtml(task.details)}</textarea>
+      <div class="task-links-preview" data-task-links-preview data-task-id="${task.id}">
+        ${getDetailsPreviewHtml(task.details)}
+      </div>
+    </article>
     <section class="task-timeline">
-      <ul class="timeline-list" data-timeline-list>
+      <ul class="timeline-list ${task.notes.length ? '' : 'is-empty'}" data-timeline-list>
         ${getTimelineHtml(task.notes)}
       </ul>
       <div class="timeline-input-row">
@@ -318,7 +322,7 @@ const taskCard = (task) => `
         <button class="timeline-add-button" type="button" data-add-note data-task-id="${task.id}">Add</button>
       </div>
     </section>
-  </article>
+  </section>
 `;
 
 const render = () => {
@@ -446,8 +450,8 @@ const render = () => {
     element.addEventListener('click', (event) => {
       const target = event.currentTarget;
       const taskId = Number(target.dataset.taskId);
-      const card = target.closest('[data-task-card]');
-      const input = card?.querySelector('[data-note-input]');
+      const column = target.closest('[data-task-column]');
+      const input = column?.querySelector('[data-note-input]');
       if (!(input instanceof HTMLInputElement)) {
         return;
       }

@@ -310,16 +310,19 @@ const taskCard = (task) => `
       <ul class="timeline-list ${task.notes.length ? '' : 'is-empty'}" data-timeline-list>
         ${getTimelineHtml(task.notes)}
       </ul>
-      <div class="timeline-input-row">
-        <input
-          class="timeline-input"
-          type="text"
-          placeholder="Add status note"
-          aria-label="Add status note for task ${task.id}"
-          data-note-input
-          data-task-id="${task.id}"
-        />
-        <button class="timeline-add-button" type="button" data-add-note data-task-id="${task.id}">Add</button>
+      <div class="timeline-compose">
+        <button class="timeline-plus-button" type="button" aria-label="Add status note" data-open-note-composer data-task-id="${task.id}">+</button>
+        <div class="timeline-compose-box" data-note-composer>
+          <input
+            class="timeline-note-draft"
+            type="text"
+            placeholder="Write status"
+            aria-label="Write status note for task ${task.id}"
+            data-note-draft
+            data-task-id="${task.id}"
+          />
+          <button class="timeline-done-button" type="button" data-note-done data-task-id="${task.id}">Done</button>
+        </div>
       </div>
     </section>
   </section>
@@ -446,22 +449,67 @@ const render = () => {
     });
   });
 
-  document.querySelectorAll('[data-add-note]').forEach((element) => {
+  document.querySelectorAll('[data-open-note-composer]').forEach((element) => {
     element.addEventListener('click', (event) => {
+      event.stopPropagation();
       const target = event.currentTarget;
-      const taskId = Number(target.dataset.taskId);
+      document.querySelectorAll('.task-column.is-adding-note').forEach((columnElement) => {
+        if (columnElement !== target.closest('[data-task-column]')) {
+          columnElement.classList.remove('is-adding-note');
+          const existingDraft = columnElement.querySelector('[data-note-draft]');
+          if (existingDraft instanceof HTMLInputElement) {
+            existingDraft.value = '';
+          }
+        }
+      });
+
       const column = target.closest('[data-task-column]');
-      const input = column?.querySelector('[data-note-input]');
-      if (!(input instanceof HTMLInputElement)) {
+      const draft = column?.querySelector('[data-note-draft]');
+      if (!(draft instanceof HTMLInputElement)) {
         return;
       }
 
-      addTaskNote(taskId, input.value);
+      column?.classList.add('is-adding-note');
+      draft.focus();
     });
   });
 
-  document.querySelectorAll('[data-note-input]').forEach((element) => {
+  document.querySelectorAll('[data-note-done]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const target = event.currentTarget;
+      const taskId = Number(target.dataset.taskId);
+      const column = target.closest('[data-task-column]');
+      const draft = column?.querySelector('[data-note-draft]');
+      if (!(draft instanceof HTMLInputElement)) {
+        return;
+      }
+
+      const noteText = draft.value;
+      if (noteText.trim()) {
+        addTaskNote(taskId, noteText);
+        return;
+      }
+
+      column?.classList.remove('is-adding-note');
+      draft.value = '';
+    });
+  });
+
+  document.querySelectorAll('[data-note-draft]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+
     element.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        const target = event.currentTarget;
+        target.closest('[data-task-column]')?.classList.remove('is-adding-note');
+        target.value = '';
+        return;
+      }
+
       if (event.key !== 'Enter') {
         return;
       }
@@ -470,6 +518,20 @@ const render = () => {
       const target = event.currentTarget;
       const taskId = Number(target.dataset.taskId);
       addTaskNote(taskId, target.value);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (event.target instanceof Element && event.target.closest('[data-note-composer], [data-open-note-composer]')) {
+      return;
+    }
+
+    document.querySelectorAll('.task-column.is-adding-note').forEach((columnElement) => {
+      columnElement.classList.remove('is-adding-note');
+      const draft = columnElement.querySelector('[data-note-draft]');
+      if (draft instanceof HTMLInputElement) {
+        draft.value = '';
+      }
     });
   });
 

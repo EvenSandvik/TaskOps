@@ -317,28 +317,91 @@ button {
   color: #9ca3af;
 }
 
-.timeline-input-row {
+.timeline-compose {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  justify-items: center;
   gap: 8px;
 }
 
-.timeline-input {
+.timeline-plus-button {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.timeline-plus-button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.timeline-plus-button:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+}
+
+.timeline-compose-box {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 4px);
+  transform: translateX(-50%);
+  transform-origin: bottom center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+  z-index: 5;
+}
+
+.task-column.is-adding-note .timeline-compose-box {
+  display: grid;
+}
+
+.timeline-note-draft {
   width: 100%;
   border: 1px solid #e5e7eb;
   background: #ffffff;
   border-radius: 12px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   outline: none;
+  min-height: 40px;
 }
 
-.timeline-add-button {
+.timeline-done-button {
   border: 1px solid #d1d5db;
   background: #f9fafb;
   border-radius: 12px;
   padding: 8px 10px;
   cursor: pointer;
   font-size: 0.82rem;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.timeline-done-button:hover {
+  background: #eef2ff;
+  border-color: #93c5fd;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12);
+}
+
+.timeline-done-button:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.14);
 }
 
 .trash-zone {

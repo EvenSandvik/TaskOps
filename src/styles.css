@@ -171,6 +171,17 @@ button {
   margin-bottom: 8px;
 }
 
+.menu-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .menu-section-title {
   margin: 0;
   font-size: 0.8rem;
@@ -200,6 +211,10 @@ button {
   list-style: none;
   display: grid;
   gap: 0;
+}
+
+.menu-task-list.is-collapsed {
+  display: none;
 }
 
 .menu-task-item {

@@ -5,6 +5,7 @@ const LEGACY_TASKS_STORAGE_KEY = 'tasktrack.tasks';
 const BOARDS_STORAGE_KEY = 'tasktrack.boards';
 const ACTIVE_BOARD_STORAGE_KEY = 'tasktrack.activeBoardId';
 const ZOOM_STORAGE_KEY = 'tasktrack.zoom';
+const MENU_SECTIONS_STORAGE_KEY = 'tasktrack.menuSections';
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2;
 const KEYBOARD_ZOOM_STEP = 0.05;
@@ -19,6 +20,8 @@ let zoomIndicatorTimer;
 let draggedTaskId = null;
 let draggedTaskElement = null;
 let dragPreviewElement = null;
+let isCompletedSectionCollapsed = false;
+let isTrashSectionCollapsed = false;
 
 const app = document.querySelector('#app');
 
@@ -279,6 +282,39 @@ const emptyTrash = () => {
 
   board.trashedTasks = [];
   saveBoards();
+  render();
+};
+
+const saveMenuSections = () => {
+  localStorage.setItem(
+    MENU_SECTIONS_STORAGE_KEY,
+    JSON.stringify({
+      completed: isCompletedSectionCollapsed,
+      trash: isTrashSectionCollapsed,
+    }),
+  );
+};
+
+const loadMenuSections = () => {
+  try {
+    const storedSections = JSON.parse(localStorage.getItem(MENU_SECTIONS_STORAGE_KEY) ?? '{}');
+    isCompletedSectionCollapsed = Boolean(storedSections.completed);
+    isTrashSectionCollapsed = Boolean(storedSections.trash);
+  } catch {
+    localStorage.removeItem(MENU_SECTIONS_STORAGE_KEY);
+  }
+};
+
+const toggleMenuSection = (section) => {
+  if (section === 'completed') {
+    isCompletedSectionCollapsed = !isCompletedSectionCollapsed;
+  }
+
+  if (section === 'trash') {
+    isTrashSectionCollapsed = !isTrashSectionCollapsed;
+  }
+
+  saveMenuSections();
   render();
 };
 
@@ -561,18 +597,24 @@ const render = () => {
         </ul>
 
         <section class="menu-section">
-          <h3 class="menu-section-title">Completed (${completedTasks.length})</h3>
-          <ul class="menu-task-list">
+          <button class="menu-section-toggle" type="button" data-toggle-menu-section="completed" aria-expanded="${!isCompletedSectionCollapsed}">
+            <h3 class="menu-section-title">Completed (${completedTasks.length})</h3>
+            <i class="bi ${isCompletedSectionCollapsed ? 'bi-chevron-right' : 'bi-chevron-down'}" aria-hidden="true"></i>
+          </button>
+          <ul class="menu-task-list ${isCompletedSectionCollapsed ? 'is-collapsed' : ''}">
             ${completedTasks.length ? completedTasks.map(taskMenuPreview).join('') : '<li class="menu-task-empty">No completed tasks</li>'}
           </ul>
         </section>
 
         <section class="menu-section">
           <div class="menu-section-head">
-            <h3 class="menu-section-title">Trash (${trashedTasks.length})</h3>
             <button class="menu-section-action" type="button" data-empty-trash ${trashedTasks.length ? '' : 'disabled'}>Empty</button>
+            <button class="menu-section-toggle" type="button" data-toggle-menu-section="trash" aria-expanded="${!isTrashSectionCollapsed}">
+              <h3 class="menu-section-title">Trash (${trashedTasks.length})</h3>
+              <i class="bi ${isTrashSectionCollapsed ? 'bi-chevron-right' : 'bi-chevron-down'}" aria-hidden="true"></i>
+            </button>
           </div>
-          <ul class="menu-task-list">
+          <ul class="menu-task-list ${isTrashSectionCollapsed ? 'is-collapsed' : ''}">
             ${trashedTasks.length ? trashedTasks.map(taskMenuPreview).join('') : '<li class="menu-task-empty">Trash is empty</li>'}
           </ul>
         </section>
@@ -624,6 +666,13 @@ const render = () => {
   });
 
   document.querySelector('[data-empty-trash]')?.addEventListener('click', emptyTrash);
+
+  document.querySelectorAll('[data-toggle-menu-section]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      const section = event.currentTarget.dataset.toggleMenuSection;
+      toggleMenuSection(section);
+    });
+  });
 
   document.querySelectorAll('[data-toggle-complete]').forEach((element) => {
     element.addEventListener('click', (event) => {
@@ -882,4 +931,5 @@ const render = () => {
 
 loadBoards();
 loadZoom();
+loadMenuSections();
 render();

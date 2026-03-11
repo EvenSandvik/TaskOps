@@ -24,17 +24,18 @@ const app = document.querySelector('#app');
 
 const createTask = (id) => ({
   id,
-  title: `Task ${id}`,
+  title: `#${id}`,
   details: '',
   completed: false,
   notes: [],
 });
 
-const createBoard = (id, name, boardTasks = [], trashedTasks = []) => ({
+const createBoard = (id, name, boardTasks = [], trashedTasks = [], nextTaskNumber = 1) => ({
   id,
   name,
   tasks: boardTasks,
   trashedTasks,
+  nextTaskNumber,
 });
 
 const escapeHtml = (text) =>
@@ -111,7 +112,7 @@ const normalizeTasks = (rawTasks) => {
 
   return rawTasks.map((task, index) => ({
     id: Number(task.id) || index + 1,
-    title: typeof task.title === 'string' && task.title.trim() ? task.title : `Task ${index + 1}`,
+    title: typeof task.title === 'string' && task.title.trim() ? task.title : `#${index + 1}`,
     details: typeof task.details === 'string' ? task.details : '',
     completed: Boolean(task.completed),
     notes: Array.isArray(task.notes)
@@ -123,6 +124,11 @@ const normalizeTasks = (rawTasks) => {
           .filter((note) => note.text.trim())
       : [],
   }));
+};
+
+const getInitialNextTaskNumber = (boardTasks, trashedTasks = []) => {
+  const maxTaskId = [...boardTasks, ...trashedTasks].reduce((max, task) => Math.max(max, Number(task?.id) || 0), 0);
+  return Math.max(1, maxTaskId + 1);
 };
 
 const getActiveBoard = () => boards.find((board) => board.id === activeBoardId) ?? boards[0] ?? null;
@@ -165,12 +171,17 @@ const loadBoards = () => {
           0,
           boards.length,
           ...parsedBoards.map((board, index) =>
-            createBoard(
-              Number(board?.id) || index + 1,
-              typeof board?.name === 'string' && board.name.trim() ? board.name : `Board ${index + 1}`,
-              normalizeTasks(board?.tasks),
-              normalizeTasks(board?.trashedTasks),
-            ),
+            {
+              const normalizedTasks = normalizeTasks(board?.tasks);
+              const normalizedTrashedTasks = normalizeTasks(board?.trashedTasks);
+              return createBoard(
+                Number(board?.id) || index + 1,
+                typeof board?.name === 'string' && board.name.trim() ? board.name : `Board ${index + 1}`,
+                normalizedTasks,
+                normalizedTrashedTasks,
+                Number(board?.nextTaskNumber) || getInitialNextTaskNumber(normalizedTasks, normalizedTrashedTasks),
+              );
+            },
           ),
         );
         activeBoardId = Number.isFinite(storedActiveBoardId) ? storedActiveBoardId : boards[0].id;
@@ -183,7 +194,8 @@ const loadBoards = () => {
     }
 
     const legacyTasks = JSON.parse(localStorage.getItem(LEGACY_TASKS_STORAGE_KEY) ?? '[]');
-    const defaultBoard = createBoard(1, 'Board 1', normalizeTasks(legacyTasks));
+    const normalizedLegacyTasks = normalizeTasks(legacyTasks);
+    const defaultBoard = createBoard(1, 'Board 1', normalizedLegacyTasks, [], getInitialNextTaskNumber(normalizedLegacyTasks));
     boards.splice(0, boards.length, defaultBoard);
     activeBoardId = defaultBoard.id;
     syncTasksFromActiveBoard();
@@ -191,7 +203,7 @@ const loadBoards = () => {
   } catch {
     localStorage.removeItem(BOARDS_STORAGE_KEY);
     localStorage.removeItem(ACTIVE_BOARD_STORAGE_KEY);
-    const defaultBoard = createBoard(1, 'Board 1', []);
+    const defaultBoard = createBoard(1, 'Board 1', [], [], 1);
     boards.splice(0, boards.length, defaultBoard);
     activeBoardId = defaultBoard.id;
     syncTasksFromActiveBoard();
@@ -200,7 +212,7 @@ const loadBoards = () => {
 
 const addBoard = () => {
   const nextId = (boards.at(-1)?.id ?? 0) + 1;
-  boards.push(createBoard(nextId, `Board ${boards.length + 1}`, []));
+  boards.push(createBoard(nextId, `Board ${boards.length + 1}`, [], [], 1));
   activeBoardId = nextId;
   syncTasksFromActiveBoard();
   saveBoards();
@@ -351,7 +363,13 @@ const setZoom = (nextZoom, { showIndicator = true } = {}) => {
 };
 
 const addTask = () => {
-  const nextId = (tasks.at(-1)?.id ?? 0) + 1;
+  const board = getActiveBoard();
+  if (!board) {
+    return;
+  }
+
+  const nextId = board.nextTaskNumber;
+  board.nextTaskNumber += 1;
   tasks.push(createTask(nextId));
   saveTasks();
   render();

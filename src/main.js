@@ -19,7 +19,6 @@ let zoomIndicatorTimer;
 let draggedTaskId = null;
 let draggedTaskElement = null;
 let dragPreviewElement = null;
-let isMenuOpen = false;
 
 const app = document.querySelector('#app');
 
@@ -518,8 +517,7 @@ const render = () => {
 
   app.innerHTML = `
     <main class="shell">
-      <div class="menu-overlay ${isMenuOpen ? 'is-open' : ''}" data-menu-overlay></div>
-      <aside class="left-menu ${isMenuOpen ? 'is-open' : ''}" aria-hidden="${isMenuOpen ? 'false' : 'true'}">
+      <aside class="left-menu" aria-hidden="false">
         <div class="left-menu-head">
           <h2 class="left-menu-title">Boards</h2>
           <button class="left-menu-add-board" type="button" aria-label="Nytt board" data-add-board>+</button>
@@ -544,9 +542,6 @@ const render = () => {
       </aside>
 
       <div class="toolbar">
-        <button class="menu-toggle-button" type="button" aria-label="Åpne/lukk meny" data-toggle-menu>
-          <i class="bi ${isMenuOpen ? 'bi-x-lg' : 'bi-list'}" aria-hidden="true"></i>
-        </button>
         <button class="add-task-button" type="button" aria-label="Add task" data-add-task>
           +
         </button>
@@ -567,20 +562,6 @@ const render = () => {
       </div>
     </main>
   `;
-
-  document.querySelector('[data-toggle-menu]')?.addEventListener('click', () => {
-    isMenuOpen = !isMenuOpen;
-    render();
-  });
-
-  document.querySelector('[data-menu-overlay]')?.addEventListener('click', () => {
-    if (!isMenuOpen) {
-      return;
-    }
-
-    isMenuOpen = false;
-    render();
-  });
 
   document.querySelector('[data-add-board]')?.addEventListener('click', addBoard);
 

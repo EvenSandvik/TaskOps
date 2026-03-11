@@ -6,6 +6,7 @@ const BOARDS_STORAGE_KEY = 'tasktrack.boards';
 const ACTIVE_BOARD_STORAGE_KEY = 'tasktrack.activeBoardId';
 const ZOOM_STORAGE_KEY = 'tasktrack.zoom';
 const MENU_SECTIONS_STORAGE_KEY = 'tasktrack.menuSections';
+const SIDEBAR_STORAGE_KEY = 'tasktrack.sidebarCollapsed';
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2;
 const KEYBOARD_ZOOM_STEP = 0.05;
@@ -22,6 +23,7 @@ let draggedTaskElement = null;
 let dragPreviewElement = null;
 let isCompletedSectionCollapsed = false;
 let isTrashSectionCollapsed = false;
+let isSidebarCollapsed = false;
 
 const app = document.querySelector('#app');
 
@@ -305,6 +307,24 @@ const loadMenuSections = () => {
   }
 };
 
+const saveSidebarState = () => {
+  localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(isSidebarCollapsed));
+};
+
+const loadSidebarState = () => {
+  try {
+    isSidebarCollapsed = Boolean(JSON.parse(localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? 'false'));
+  } catch {
+    localStorage.removeItem(SIDEBAR_STORAGE_KEY);
+  }
+};
+
+const toggleSidebar = () => {
+  isSidebarCollapsed = !isSidebarCollapsed;
+  saveSidebarState();
+  render();
+};
+
 const toggleMenuSection = (section) => {
   if (section === 'completed') {
     isCompletedSectionCollapsed = !isCompletedSectionCollapsed;
@@ -586,8 +606,13 @@ const render = () => {
   const trashedTasks = activeBoard?.trashedTasks ?? [];
 
   app.innerHTML = `
-    <main class="shell">
-      <aside class="left-menu" aria-hidden="false">
+    <main class="shell ${isSidebarCollapsed ? 'is-sidebar-collapsed' : ''}">
+      <aside class="left-menu ${isSidebarCollapsed ? 'is-collapsed' : ''}" aria-hidden="false">
+        <div class="left-menu-topbar">
+          <button class="left-menu-collapse-button" type="button" aria-label="${isSidebarCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}" data-toggle-sidebar>
+            <i class="bi ${isSidebarCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'}" aria-hidden="true"></i>
+          </button>
+        </div>
         <div class="left-menu-head">
           <h2 class="left-menu-title">Boards</h2>
           <button class="left-menu-add-board" type="button" aria-label="Nytt board" data-add-board>+</button>
@@ -641,6 +666,8 @@ const render = () => {
       </div>
     </main>
   `;
+
+  document.querySelector('[data-toggle-sidebar]')?.addEventListener('click', toggleSidebar);
 
   document.querySelector('[data-add-board]')?.addEventListener('click', addBoard);
 
@@ -932,4 +959,5 @@ const render = () => {
 loadBoards();
 loadZoom();
 loadMenuSections();
+loadSidebarState();
 render();

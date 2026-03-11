@@ -7,6 +7,8 @@ const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2;
 const KEYBOARD_ZOOM_STEP = 0.05;
 const WHEEL_ZOOM_SENSITIVITY = 0.0022;
+const URL_PATTERN = /(https?:\/\/[^\s<>"]+)/gi;
+const DETAILS_PLACEHOLDER = 'Write the task here...';
 const tasks = [];
 let zoom = 1;
 let zoomIndicatorTimer;
@@ -21,6 +23,39 @@ const createTask = (id) => ({
   title: `Task ${id}`,
   details: '',
 });
+
+const escapeHtml = (text) =>
+  text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
+const linkifyText = (text) => {
+  const source = text ?? '';
+  let output = '';
+  let cursor = 0;
+
+  for (const match of source.matchAll(URL_PATTERN)) {
+    const index = match.index ?? 0;
+    const url = match[0];
+    output += escapeHtml(source.slice(cursor, index));
+    output += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`;
+    cursor = index + url.length;
+  }
+
+  output += escapeHtml(source.slice(cursor));
+  return output.replaceAll('\n', '<br>');
+};
+
+const getDetailsPreviewHtml = (text) => {
+  if (!text?.trim()) {
+    return `<span class="task-links-placeholder">${escapeHtml(DETAILS_PLACEHOLDER)}</span>`;
+  }
+
+  return linkifyText(text);
+};
 
 const saveTasks = () => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
@@ -193,20 +228,23 @@ const taskCard = (task) => `
       <input
         class="task-title"
         type="text"
-        value="${task.title}"
+        value="${escapeHtml(task.title)}"
         aria-label="Task title ${task.id}"
         data-task-input="title"
         data-task-id="${task.id}"
       />
     </div>
     <textarea
-      class="task-details"
+      class="task-details task-details-input"
       rows="8"
-      placeholder="Write the task here..."
+      placeholder="${DETAILS_PLACEHOLDER}"
       aria-label="Task details ${task.id}"
       data-task-input="details"
       data-task-id="${task.id}"
-    >${task.details}</textarea>
+    >${escapeHtml(task.details)}</textarea>
+    <div class="task-links-preview" data-task-links-preview data-task-id="${task.id}">
+      ${getDetailsPreviewHtml(task.details)}
+    </div>
   </article>
 `;
 
@@ -287,12 +325,47 @@ const render = () => {
     }
   });
 
-  document.querySelectorAll('[data-task-input]').forEach((element) => {
+  document.querySelectorAll('[data-task-input="title"]').forEach((element) => {
     element.addEventListener('input', (event) => {
       const target = event.currentTarget;
       const id = Number(target.dataset.taskId);
       const key = target.dataset.taskInput;
       updateTask(id, key, target.value);
+    });
+  });
+
+  document.querySelectorAll('[data-task-links-preview]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.closest('a')) {
+        return;
+      }
+
+      const card = element.closest('[data-task-card]');
+      const input = card?.querySelector('[data-task-input="details"]');
+      if (!(input instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      card?.classList.add('is-editing-details');
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  });
+
+  document.querySelectorAll('[data-task-input="details"]').forEach((element) => {
+    element.addEventListener('input', (event) => {
+      const target = event.currentTarget;
+      const id = Number(target.dataset.taskId);
+      updateTask(id, 'details', target.value);
+
+      const preview = target.closest('[data-task-card]')?.querySelector('[data-task-links-preview]');
+      if (preview) {
+        preview.innerHTML = getDetailsPreviewHtml(target.value);
+      }
+    });
+
+    element.addEventListener('blur', (event) => {
+      event.currentTarget.closest('[data-task-card]')?.classList.remove('is-editing-details');
     });
   });
 

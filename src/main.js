@@ -74,7 +74,7 @@ const formatNoteTime = (time) => {
 
 const getTimelineHtml = (notes) => {
   if (!notes.length) {
-    return '<li class="timeline-empty">No status notes yet.</li>';
+    return '';
   }
 
   return notes

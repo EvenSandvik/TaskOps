@@ -1,7 +1,9 @@
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './styles.css';
 
-const STORAGE_KEY = 'tasktrack.tasks';
+const LEGACY_TASKS_STORAGE_KEY = 'tasktrack.tasks';
+const BOARDS_STORAGE_KEY = 'tasktrack.boards';
+const ACTIVE_BOARD_STORAGE_KEY = 'tasktrack.activeBoardId';
 const ZOOM_STORAGE_KEY = 'tasktrack.zoom';
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2;
@@ -10,6 +12,8 @@ const WHEEL_ZOOM_SENSITIVITY = 0.0022;
 const URL_PATTERN = /(https?:\/\/[^\s<>"]+)/gi;
 const DETAILS_PLACEHOLDER = 'Write the task here...';
 const tasks = [];
+const boards = [];
+let activeBoardId = null;
 let zoom = 1;
 let zoomIndicatorTimer;
 let draggedTaskId = null;
@@ -24,6 +28,12 @@ const createTask = (id) => ({
   title: `Task ${id}`,
   details: '',
   notes: [],
+});
+
+const createBoard = (id, name, boardTasks = []) => ({
+  id,
+  name,
+  tasks: boardTasks,
 });
 
 const escapeHtml = (text) =>
@@ -93,42 +103,152 @@ const getTimelineHtml = (notes) => {
     .join('');
 };
 
-const saveTasks = () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+const normalizeTasks = (rawTasks) => {
+  if (!Array.isArray(rawTasks)) {
+    return [];
+  }
+
+  return rawTasks.map((task, index) => ({
+    id: Number(task.id) || index + 1,
+    title: typeof task.title === 'string' && task.title.trim() ? task.title : `Task ${index + 1}`,
+    details: typeof task.details === 'string' ? task.details : '',
+    notes: Array.isArray(task.notes)
+      ? task.notes
+          .map((note) => ({
+            text: typeof note?.text === 'string' ? note.text : '',
+            createdAt: Number(note?.createdAt) || Date.now(),
+          }))
+          .filter((note) => note.text.trim())
+      : [],
+  }));
 };
 
-const loadTasks = () => {
-  try {
-    const storedTasks = localStorage.getItem(STORAGE_KEY);
-    if (!storedTasks) {
-      return;
-    }
+const getActiveBoard = () => boards.find((board) => board.id === activeBoardId) ?? boards[0] ?? null;
 
-    const parsedTasks = JSON.parse(storedTasks);
-    if (!Array.isArray(parsedTasks)) {
-      return;
-    }
-
-    tasks.splice(
-      0,
-      tasks.length,
-      ...parsedTasks.map((task, index) => ({
-        id: Number(task.id) || index + 1,
-        title: typeof task.title === 'string' && task.title.trim() ? task.title : `Task ${index + 1}`,
-        details: typeof task.details === 'string' ? task.details : '',
-        notes: Array.isArray(task.notes)
-          ? task.notes
-              .map((note) => ({
-                text: typeof note?.text === 'string' ? note.text : '',
-                createdAt: Number(note?.createdAt) || Date.now(),
-              }))
-              .filter((note) => note.text.trim())
-          : [],
-      })),
-    );
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
+const syncTasksFromActiveBoard = () => {
+  const board = getActiveBoard();
+  if (!board) {
+    tasks.splice(0, tasks.length);
+    return;
   }
+
+  tasks.splice(0, tasks.length, ...normalizeTasks(board.tasks));
+};
+
+const saveBoards = () => {
+  localStorage.setItem(BOARDS_STORAGE_KEY, JSON.stringify(boards));
+  localStorage.setItem(ACTIVE_BOARD_STORAGE_KEY, String(activeBoardId ?? ''));
+};
+
+const saveTasks = () => {
+  const board = getActiveBoard();
+  if (!board) {
+    return;
+  }
+
+  board.tasks = normalizeTasks(tasks);
+  localStorage.setItem(LEGACY_TASKS_STORAGE_KEY, JSON.stringify(board.tasks));
+  saveBoards();
+};
+
+const loadBoards = () => {
+  try {
+    const storedBoards = localStorage.getItem(BOARDS_STORAGE_KEY);
+    const storedActiveBoardId = Number(localStorage.getItem(ACTIVE_BOARD_STORAGE_KEY));
+
+    if (storedBoards) {
+      const parsedBoards = JSON.parse(storedBoards);
+      if (Array.isArray(parsedBoards) && parsedBoards.length) {
+        boards.splice(
+          0,
+          boards.length,
+          ...parsedBoards.map((board, index) =>
+            createBoard(
+              Number(board?.id) || index + 1,
+              typeof board?.name === 'string' && board.name.trim() ? board.name : `Board ${index + 1}`,
+              normalizeTasks(board?.tasks),
+            ),
+          ),
+        );
+        activeBoardId = Number.isFinite(storedActiveBoardId) ? storedActiveBoardId : boards[0].id;
+        if (!boards.some((board) => board.id === activeBoardId)) {
+          activeBoardId = boards[0].id;
+        }
+        syncTasksFromActiveBoard();
+        return;
+      }
+    }
+
+    const legacyTasks = JSON.parse(localStorage.getItem(LEGACY_TASKS_STORAGE_KEY) ?? '[]');
+    const defaultBoard = createBoard(1, 'Board 1', normalizeTasks(legacyTasks));
+    boards.splice(0, boards.length, defaultBoard);
+    activeBoardId = defaultBoard.id;
+    syncTasksFromActiveBoard();
+    saveBoards();
+  } catch {
+    localStorage.removeItem(BOARDS_STORAGE_KEY);
+    localStorage.removeItem(ACTIVE_BOARD_STORAGE_KEY);
+    const defaultBoard = createBoard(1, 'Board 1', []);
+    boards.splice(0, boards.length, defaultBoard);
+    activeBoardId = defaultBoard.id;
+    syncTasksFromActiveBoard();
+  }
+};
+
+const addBoard = () => {
+  const nextId = (boards.at(-1)?.id ?? 0) + 1;
+  boards.push(createBoard(nextId, `Board ${boards.length + 1}`, []));
+  activeBoardId = nextId;
+  syncTasksFromActiveBoard();
+  saveBoards();
+  render();
+};
+
+const switchBoard = (id) => {
+  if (id === activeBoardId || !boards.some((board) => board.id === id)) {
+    return;
+  }
+
+  saveTasks();
+  activeBoardId = id;
+  syncTasksFromActiveBoard();
+  render();
+};
+
+const renameBoard = (id) => {
+  const board = boards.find((item) => item.id === id);
+  if (!board) {
+    return;
+  }
+
+  const nextName = window.prompt('Gi board et navn', board.name)?.trim();
+  if (!nextName) {
+    return;
+  }
+
+  board.name = nextName;
+  saveBoards();
+  render();
+};
+
+const deleteBoard = (id) => {
+  if (boards.length <= 1) {
+    return;
+  }
+
+  const board = boards.find((item) => item.id === id);
+  if (!board || !window.confirm(`Slette board "${board.name}"?`)) {
+    return;
+  }
+
+  const boardIndex = boards.findIndex((item) => item.id === id);
+  boards.splice(boardIndex, 1);
+  if (activeBoardId === id) {
+    activeBoardId = boards[0].id;
+    syncTasksFromActiveBoard();
+  }
+  saveBoards();
+  render();
 };
 
 const saveZoom = () => {
@@ -329,13 +449,30 @@ const taskCard = (task) => `
   </section>
 `;
 
+const boardMenuItem = (board) => `
+  <li class="board-menu-item ${board.id === activeBoardId ? 'is-active' : ''}">
+    <button class="board-menu-switch" type="button" data-switch-board data-board-id="${board.id}">${escapeHtml(board.name)}</button>
+    <button class="board-menu-icon" type="button" aria-label="Gi nytt navn" data-rename-board data-board-id="${board.id}">
+      <i class="bi bi-pencil" aria-hidden="true"></i>
+    </button>
+    <button class="board-menu-icon" type="button" aria-label="Slett board" data-delete-board data-board-id="${board.id}" ${boards.length <= 1 ? 'disabled' : ''}>
+      <i class="bi bi-trash3" aria-hidden="true"></i>
+    </button>
+  </li>
+`;
+
 const render = () => {
   app.innerHTML = `
     <main class="shell">
       <div class="menu-overlay ${isMenuOpen ? 'is-open' : ''}" data-menu-overlay></div>
       <aside class="left-menu ${isMenuOpen ? 'is-open' : ''}" aria-hidden="${isMenuOpen ? 'false' : 'true'}">
-        <h2 class="left-menu-title">Meny</h2>
-        <p class="left-menu-text">Her kan du senere legge inn filter, prosjekter eller tags.</p>
+        <div class="left-menu-head">
+          <h2 class="left-menu-title">Boards</h2>
+          <button class="left-menu-add-board" type="button" aria-label="Nytt board" data-add-board>+</button>
+        </div>
+        <ul class="board-menu-list">
+          ${boards.map(boardMenuItem).join('')}
+        </ul>
       </aside>
 
       <div class="toolbar">
@@ -375,6 +512,29 @@ const render = () => {
 
     isMenuOpen = false;
     render();
+  });
+
+  document.querySelector('[data-add-board]')?.addEventListener('click', addBoard);
+
+  document.querySelectorAll('[data-switch-board]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      const id = Number(event.currentTarget.dataset.boardId);
+      switchBoard(id);
+    });
+  });
+
+  document.querySelectorAll('[data-rename-board]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      const id = Number(event.currentTarget.dataset.boardId);
+      renameBoard(id);
+    });
+  });
+
+  document.querySelectorAll('[data-delete-board]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      const id = Number(event.currentTarget.dataset.boardId);
+      deleteBoard(id);
+    });
   });
 
   document.querySelector('[data-add-task]')?.addEventListener('click', addTask);
@@ -592,6 +752,6 @@ const render = () => {
   applyZoom({ showIndicator: false });
 };
 
-loadTasks();
+loadBoards();
 loadZoom();
 render();

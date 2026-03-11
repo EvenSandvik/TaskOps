@@ -414,6 +414,19 @@ const addTaskNote = (taskId, text) => {
   render();
 };
 
+const moveTaskToIndex = (taskId, toIndex) => {
+  const fromIndex = tasks.findIndex((task) => task.id === taskId);
+  if (fromIndex === -1 || toIndex < 0 || toIndex >= tasks.length || fromIndex === toIndex) {
+    return;
+  }
+
+
+  const [task] = tasks.splice(fromIndex, 1);
+  tasks.splice(toIndex, 0, task);
+  saveTasks();
+  render();
+};
+
 const taskCard = (task) => `
   <section class="task-column" data-task-column data-task-id="${task.id}">
     <article class="task-card ${task.completed ? 'is-completed' : ''}" data-task-card data-task-id="${task.id}">
@@ -622,6 +635,39 @@ const render = () => {
 
     element.addEventListener('dragend', () => {
       clearDragState();
+    });
+  });
+
+  document.querySelectorAll('[data-task-column]').forEach((element) => {
+    element.addEventListener('dragover', (event) => {
+      if (!draggedTaskId) {
+        return;
+      }
+
+      event.preventDefault();
+      element.classList.add('is-drop-target');
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    });
+
+    element.addEventListener('dragleave', () => {
+      element.classList.remove('is-drop-target');
+    });
+
+    element.addEventListener('drop', (event) => {
+      event.preventDefault();
+      const toTaskId = Number(element.dataset.taskId);
+      element.classList.remove('is-drop-target');
+
+      if (!draggedTaskId || !toTaskId || draggedTaskId === toTaskId) {
+        return;
+      }
+
+      const fromTaskId = draggedTaskId;
+      const toIndex = tasks.findIndex((task) => task.id === toTaskId);
+      clearDragState();
+      moveTaskToIndex(fromTaskId, toIndex);
     });
   });
 

@@ -22,6 +22,7 @@ const createTask = (id) => ({
   id,
   title: `Task ${id}`,
   details: '',
+  notes: [],
 });
 
 const escapeHtml = (text) =>
@@ -57,6 +58,38 @@ const getDetailsPreviewHtml = (text) => {
   return linkifyText(text);
 };
 
+const formatNoteTime = (time) => {
+  const date = new Date(time);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
+
+const getTimelineHtml = (notes) => {
+  if (!notes.length) {
+    return '<li class="timeline-empty">No status notes yet.</li>';
+  }
+
+  return notes
+    .toSorted((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+    .map(
+      (note) => `
+        <li class="timeline-item">
+          <p class="timeline-note">${linkifyText(note.text)}</p>
+          <time class="timeline-time" datetime="${new Date(note.createdAt).toISOString()}">${escapeHtml(formatNoteTime(note.createdAt))}</time>
+        </li>
+      `,
+    )
+    .join('');
+};
+
 const saveTasks = () => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 };
@@ -80,6 +113,14 @@ const loadTasks = () => {
         id: Number(task.id) || index + 1,
         title: typeof task.title === 'string' && task.title.trim() ? task.title : `Task ${index + 1}`,
         details: typeof task.details === 'string' ? task.details : '',
+        notes: Array.isArray(task.notes)
+          ? task.notes
+              .map((note) => ({
+                text: typeof note?.text === 'string' ? note.text : '',
+                createdAt: Number(note?.createdAt) || Date.now(),
+              }))
+              .filter((note) => note.text.trim())
+          : [],
       })),
     );
   } catch {
@@ -211,6 +252,22 @@ const deleteTask = (id) => {
   render();
 };
 
+const addTaskNote = (taskId, text) => {
+  const task = tasks.find((item) => item.id === taskId);
+  const noteText = text.trim();
+  if (!task || !noteText) {
+    return;
+  }
+
+  task.notes.push({
+    text: noteText,
+    createdAt: Date.now(),
+  });
+
+  saveTasks();
+  render();
+};
+
 const taskCard = (task) => `
   <article class="task-card" data-task-card data-task-id="${task.id}">
     <div class="task-card-header">
@@ -245,6 +302,22 @@ const taskCard = (task) => `
     <div class="task-links-preview" data-task-links-preview data-task-id="${task.id}">
       ${getDetailsPreviewHtml(task.details)}
     </div>
+    <section class="task-timeline">
+      <ul class="timeline-list" data-timeline-list>
+        ${getTimelineHtml(task.notes)}
+      </ul>
+      <div class="timeline-input-row">
+        <input
+          class="timeline-input"
+          type="text"
+          placeholder="Add status note"
+          aria-label="Add status note for task ${task.id}"
+          data-note-input
+          data-task-id="${task.id}"
+        />
+        <button class="timeline-add-button" type="button" data-add-note data-task-id="${task.id}">Add</button>
+      </div>
+    </section>
   </article>
 `;
 
@@ -366,6 +439,33 @@ const render = () => {
 
     element.addEventListener('blur', (event) => {
       event.currentTarget.closest('[data-task-card]')?.classList.remove('is-editing-details');
+    });
+  });
+
+  document.querySelectorAll('[data-add-note]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      const target = event.currentTarget;
+      const taskId = Number(target.dataset.taskId);
+      const card = target.closest('[data-task-card]');
+      const input = card?.querySelector('[data-note-input]');
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+
+      addTaskNote(taskId, input.value);
+    });
+  });
+
+  document.querySelectorAll('[data-note-input]').forEach((element) => {
+    element.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') {
+        return;
+      }
+
+      event.preventDefault();
+      const target = event.currentTarget;
+      const taskId = Number(target.dataset.taskId);
+      addTaskNote(taskId, target.value);
     });
   });
 

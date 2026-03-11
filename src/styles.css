@@ -103,7 +103,7 @@ button {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 2px;
+  gap: 0;
 }
 
 .board-menu-item {
@@ -111,12 +111,12 @@ button {
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 4px;
   align-items: center;
-  padding: 2px 0;
-  border-radius: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #eef2f7;
 }
 
 .board-menu-item.is-active {
-  background: #f8fafc;
+  background: transparent;
 }
 
 .board-menu-switch {
@@ -148,7 +148,7 @@ button {
 .board-menu-switch:hover,
 .board-menu-icon:hover,
 .left-menu-add-board:hover {
-  background: #f1f5f9;
+  background: transparent;
   color: #475569;
 }
 
@@ -163,8 +163,16 @@ button {
   border-top: 1px solid #eef2f7;
 }
 
+.menu-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .menu-section-title {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 0.8rem;
   font-weight: 700;
   color: #64748b;
@@ -172,20 +180,34 @@ button {
   letter-spacing: 0.04em;
 }
 
+.menu-section-action {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.menu-section-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .menu-task-list {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 4px;
+  gap: 0;
 }
 
 .menu-task-item {
-  padding: 5px 6px;
-  border-radius: 7px;
+  padding: 6px 2px;
+  border-bottom: 1px solid #eef2f7;
   font-size: 0.86rem;
   color: #334155;
-  background: #f8fafc;
+  background: transparent;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

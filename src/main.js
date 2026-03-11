@@ -227,6 +227,7 @@ const switchBoard = (id) => {
   saveTasks();
   activeBoardId = id;
   syncTasksFromActiveBoard();
+  saveBoards();
   render();
 };
 
@@ -262,6 +263,21 @@ const deleteBoard = (id) => {
     activeBoardId = boards[0].id;
     syncTasksFromActiveBoard();
   }
+  saveBoards();
+  render();
+};
+
+const emptyTrash = () => {
+  const board = getActiveBoard();
+  if (!board || !board.trashedTasks?.length) {
+    return;
+  }
+
+  if (!window.confirm('Empty trash for this board?')) {
+    return;
+  }
+
+  board.trashedTasks = [];
   saveBoards();
   render();
 };
@@ -552,7 +568,10 @@ const render = () => {
         </section>
 
         <section class="menu-section">
-          <h3 class="menu-section-title">Trash (${trashedTasks.length})</h3>
+          <div class="menu-section-head">
+            <h3 class="menu-section-title">Trash (${trashedTasks.length})</h3>
+            <button class="menu-section-action" type="button" data-empty-trash ${trashedTasks.length ? '' : 'disabled'}>Empty</button>
+          </div>
           <ul class="menu-task-list">
             ${trashedTasks.length ? trashedTasks.map(taskMenuPreview).join('') : '<li class="menu-task-empty">Trash is empty</li>'}
           </ul>
@@ -603,6 +622,8 @@ const render = () => {
       deleteBoard(id);
     });
   });
+
+  document.querySelector('[data-empty-trash]')?.addEventListener('click', emptyTrash);
 
   document.querySelectorAll('[data-toggle-complete]').forEach((element) => {
     element.addEventListener('click', (event) => {

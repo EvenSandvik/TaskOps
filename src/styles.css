@@ -70,6 +70,7 @@ button {
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 5;
   backdrop-filter: blur(8px);
+  overflow: auto;
 }
 
 .left-menu.is-open {
@@ -159,6 +160,46 @@ button {
 .board-menu-icon:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.menu-section {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #eef2f7;
+}
+
+.menu-section-title {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.menu-task-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.menu-task-item {
+  padding: 5px 6px;
+  border-radius: 7px;
+  font-size: 0.86rem;
+  color: #334155;
+  background: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-task-empty {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  padding: 2px 2px;
 }
 
 .toolbar {
@@ -291,9 +332,30 @@ button {
 
 .task-card-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
+}
+
+.complete-task-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid #e4e4e7;
+  background: #ffffff;
+  cursor: pointer;
+  color: #94a3b8;
+}
+
+.task-card.is-completed .complete-task-button {
+  color: #16a34a;
+}
+
+.task-card.is-completed .task-title {
+  text-decoration: line-through;
+  color: #6b7280;
 }
 
 .drag-task-button {

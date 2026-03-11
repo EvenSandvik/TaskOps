@@ -27,13 +27,15 @@ const createTask = (id) => ({
   id,
   title: `Task ${id}`,
   details: '',
+  completed: false,
   notes: [],
 });
 
-const createBoard = (id, name, boardTasks = []) => ({
+const createBoard = (id, name, boardTasks = [], trashedTasks = []) => ({
   id,
   name,
   tasks: boardTasks,
+  trashedTasks,
 });
 
 const escapeHtml = (text) =>
@@ -112,6 +114,7 @@ const normalizeTasks = (rawTasks) => {
     id: Number(task.id) || index + 1,
     title: typeof task.title === 'string' && task.title.trim() ? task.title : `Task ${index + 1}`,
     details: typeof task.details === 'string' ? task.details : '',
+    completed: Boolean(task.completed),
     notes: Array.isArray(task.notes)
       ? task.notes
           .map((note) => ({
@@ -167,6 +170,7 @@ const loadBoards = () => {
               Number(board?.id) || index + 1,
               typeof board?.name === 'string' && board.name.trim() ? board.name : `Board ${index + 1}`,
               normalizeTasks(board?.tasks),
+              normalizeTasks(board?.trashedTasks),
             ),
           ),
         );
@@ -370,7 +374,26 @@ const deleteTask = (id) => {
     return;
   }
 
-  tasks.splice(taskIndex, 1);
+  const [removedTask] = tasks.splice(taskIndex, 1);
+  const board = getActiveBoard();
+  if (board && removedTask) {
+    board.trashedTasks = board.trashedTasks ?? [];
+    board.trashedTasks.push({
+      ...removedTask,
+      deletedAt: Date.now(),
+    });
+  }
+  saveTasks();
+  render();
+};
+
+const toggleTaskCompleted = (id) => {
+  const task = tasks.find((item) => item.id === id);
+  if (!task) {
+    return;
+  }
+
+  task.completed = !task.completed;
   saveTasks();
   render();
 };
@@ -393,8 +416,18 @@ const addTaskNote = (taskId, text) => {
 
 const taskCard = (task) => `
   <section class="task-column" data-task-column data-task-id="${task.id}">
-    <article class="task-card" data-task-card data-task-id="${task.id}">
+    <article class="task-card ${task.completed ? 'is-completed' : ''}" data-task-card data-task-id="${task.id}">
       <div class="task-card-header">
+        <button
+          class="complete-task-button"
+          type="button"
+          aria-label="${task.completed ? 'Mark task as incomplete' : 'Mark task as complete'}"
+          title="${task.completed ? 'Completed' : 'Mark complete'}"
+          data-toggle-complete
+          data-task-id="${task.id}"
+        >
+          <i class="bi ${task.completed ? 'bi-check-circle-fill' : 'bi-circle'}" aria-hidden="true"></i>
+        </button>
         <button
           class="drag-task-button"
           type="button"
@@ -449,6 +482,10 @@ const taskCard = (task) => `
   </section>
 `;
 
+const taskMenuPreview = (task) => `
+  <li class="menu-task-item">${escapeHtml(task.title)}</li>
+`;
+
 const boardMenuItem = (board) => `
   <li class="board-menu-item ${board.id === activeBoardId ? 'is-active' : ''}">
     <button class="board-menu-switch" type="button" data-switch-board data-board-id="${board.id}">${escapeHtml(board.name)}</button>
@@ -462,6 +499,10 @@ const boardMenuItem = (board) => `
 `;
 
 const render = () => {
+  const activeBoard = getActiveBoard();
+  const completedTasks = tasks.filter((task) => task.completed);
+  const trashedTasks = activeBoard?.trashedTasks ?? [];
+
   app.innerHTML = `
     <main class="shell">
       <div class="menu-overlay ${isMenuOpen ? 'is-open' : ''}" data-menu-overlay></div>
@@ -473,6 +514,20 @@ const render = () => {
         <ul class="board-menu-list">
           ${boards.map(boardMenuItem).join('')}
         </ul>
+
+        <section class="menu-section">
+          <h3 class="menu-section-title">Completed (${completedTasks.length})</h3>
+          <ul class="menu-task-list">
+            ${completedTasks.length ? completedTasks.map(taskMenuPreview).join('') : '<li class="menu-task-empty">No completed tasks</li>'}
+          </ul>
+        </section>
+
+        <section class="menu-section">
+          <h3 class="menu-section-title">Trash (${trashedTasks.length})</h3>
+          <ul class="menu-task-list">
+            ${trashedTasks.length ? trashedTasks.map(taskMenuPreview).join('') : '<li class="menu-task-empty">Trash is empty</li>'}
+          </ul>
+        </section>
       </aside>
 
       <div class="toolbar">
@@ -534,6 +589,13 @@ const render = () => {
     element.addEventListener('click', (event) => {
       const id = Number(event.currentTarget.dataset.boardId);
       deleteBoard(id);
+    });
+  });
+
+  document.querySelectorAll('[data-toggle-complete]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      const id = Number(event.currentTarget.dataset.taskId);
+      toggleTaskCompleted(id);
     });
   });
 

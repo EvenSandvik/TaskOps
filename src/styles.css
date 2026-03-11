@@ -91,13 +91,14 @@ button {
 }
 
 .left-menu-add-board {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
@@ -106,43 +107,53 @@ button {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 2px;
 }
 
 .board-menu-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
-  padding: 4px;
-  border-radius: 10px;
+  padding: 2px 0;
+  border-radius: 8px;
 }
 
 .board-menu-item.is-active {
-  background: #eef2ff;
+  background: #f8fafc;
 }
 
 .board-menu-switch {
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  border: 1px solid transparent;
+  background: transparent;
   text-align: left;
-  padding: 8px 10px;
+  padding: 6px 8px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #334155;
+  font-size: 0.9rem;
 }
 
 .board-menu-icon {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  border-radius: 6px;
   cursor: pointer;
+}
+
+.board-menu-switch:hover,
+.board-menu-icon:hover,
+.left-menu-add-board:hover {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .board-menu-icon:disabled {

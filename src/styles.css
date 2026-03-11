@@ -274,7 +274,7 @@ button {
   cursor: pointer;
   font-size: 0;
   line-height: 0;
-  padding: 0;
+  padding: 0 0 2px 0;
 }
 
 .add-task-button::before {

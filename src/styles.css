@@ -44,8 +44,7 @@ button {
 .toolbar {
   position: fixed;
   top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -55,15 +54,24 @@ button {
 .add-task-button {
   width: 48px;
   height: 48px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 14px;
   background: #ffffff;
   border: 1px solid #d9d9d9;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   cursor: pointer;
+  font-size: 0;
+  line-height: 0;
+  padding: 0;
+}
+
+.add-task-button::before {
+  content: '+';
   font-size: 2rem;
   line-height: 1;
+  transform: translateY(-1px);
 }
 
 .zoom-value {
@@ -470,8 +478,7 @@ body.is-dragging-task .trash-zone {
 
   .toolbar {
     top: 14px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 16px;
   }
 
   .zoom-indicator {

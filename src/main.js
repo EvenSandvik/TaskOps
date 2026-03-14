@@ -1,12 +1,6 @@
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './styles.css';
 
-const LEGACY_TASKS_STORAGE_KEY = 'tasktrack.tasks';
-const BOARDS_STORAGE_KEY = 'tasktrack.boards';
-const ACTIVE_BOARD_STORAGE_KEY = 'tasktrack.activeBoardId';
-const ZOOM_STORAGE_KEY = 'tasktrack.zoom';
-const MENU_SECTIONS_STORAGE_KEY = 'tasktrack.menuSections';
-const SIDEBAR_STORAGE_KEY = 'tasktrack.sidebarCollapsed';
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 2;
 const KEYBOARD_ZOOM_STEP = 0.05;
@@ -24,6 +18,7 @@ let dragPreviewElement = null;
 let isCompletedSectionCollapsed = false;
 let isTrashSectionCollapsed = false;
 let isSidebarCollapsed = false;
+let dataFileHandle = null;
 
 const app = document.querySelector('#app');
 
@@ -148,9 +143,124 @@ const syncTasksFromActiveBoard = () => {
   tasks.splice(0, tasks.length, ...normalizeTasks(board.tasks));
 };
 
+const buildPersistedState = () => ({
+  boards,
+  activeBoardId,
+  zoom,
+  menuSections: {
+    completed: isCompletedSectionCollapsed,
+    trash: isTrashSectionCollapsed,
+  },
+  sidebarCollapsed: isSidebarCollapsed,
+});
+
+const persistStateToFile = async () => {
+  if (!dataFileHandle) {
+    return;
+  }
+
+  const writable = await dataFileHandle.createWritable();
+  await writable.write(JSON.stringify(buildPersistedState(), null, 2));
+  await writable.close();
+};
+
+const requestPersist = () => {
+  void persistStateToFile().catch(() => {
+    // ignore write failures silently to avoid breaking interaction flow
+  });
+};
+
+const loadDefaultState = () => {
+  const defaultBoard = createBoard(1, 'Board 1', [], [], 1);
+  boards.splice(0, boards.length, defaultBoard);
+  activeBoardId = defaultBoard.id;
+  zoom = 1;
+  isCompletedSectionCollapsed = false;
+  isTrashSectionCollapsed = false;
+  isSidebarCollapsed = false;
+  syncTasksFromActiveBoard();
+};
+
+const restoreStateFromFile = (state) => {
+  const sourceBoards = Array.isArray(state?.boards) ? state.boards : [];
+
+  if (!sourceBoards.length) {
+    loadDefaultState();
+    return;
+  }
+
+  boards.splice(
+    0,
+    boards.length,
+    ...sourceBoards.map((board, index) => {
+      const normalizedTasks = normalizeTasks(board?.tasks);
+      const normalizedTrashedTasks = normalizeTasks(board?.trashedTasks);
+      return createBoard(
+        Number(board?.id) || index + 1,
+        typeof board?.name === 'string' && board.name.trim() ? board.name : `Board ${index + 1}`,
+        normalizedTasks,
+        normalizedTrashedTasks,
+        Number(board?.nextTaskNumber) || getInitialNextTaskNumber(normalizedTasks, normalizedTrashedTasks),
+      );
+    }),
+  );
+
+  const candidateActiveBoardId = Number(state?.activeBoardId);
+  activeBoardId = Number.isFinite(candidateActiveBoardId) ? candidateActiveBoardId : boards[0].id;
+  if (!boards.some((board) => board.id === activeBoardId)) {
+    activeBoardId = boards[0].id;
+  }
+
+  const candidateZoom = Number(state?.zoom);
+  if (Number.isFinite(candidateZoom)) {
+    zoom = clamp(candidateZoom, MIN_ZOOM, MAX_ZOOM);
+  }
+
+  isCompletedSectionCollapsed = Boolean(state?.menuSections?.completed);
+  isTrashSectionCollapsed = Boolean(state?.menuSections?.trash);
+  isSidebarCollapsed = Boolean(state?.sidebarCollapsed);
+
+  syncTasksFromActiveBoard();
+};
+
+const connectDataFile = async () => {
+  if (!window.showOpenFilePicker) {
+    window.alert('File storage needs a Chromium-based browser and localhost/https context.');
+    return;
+  }
+
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      multiple: false,
+      types: [
+        {
+          description: 'TaskTrack data',
+          accept: {
+            'application/json': ['.json'],
+          },
+        },
+      ],
+    });
+
+    dataFileHandle = handle;
+    const file = await dataFileHandle.getFile();
+    const text = await file.text();
+
+    if (text.trim()) {
+      restoreStateFromFile(JSON.parse(text));
+    } else {
+      loadDefaultState();
+    }
+
+    await persistStateToFile();
+    render();
+  } catch (error) {
+    // user cancelled picker or parse/write failed
+  }
+};
+
 const saveBoards = () => {
-  localStorage.setItem(BOARDS_STORAGE_KEY, JSON.stringify(boards));
-  localStorage.setItem(ACTIVE_BOARD_STORAGE_KEY, String(activeBoardId ?? ''));
+  requestPersist();
 };
 
 const saveTasks = () => {
@@ -160,59 +270,11 @@ const saveTasks = () => {
   }
 
   board.tasks = normalizeTasks(tasks);
-  localStorage.setItem(LEGACY_TASKS_STORAGE_KEY, JSON.stringify(board.tasks));
   saveBoards();
 };
 
 const loadBoards = () => {
-  try {
-    const storedBoards = localStorage.getItem(BOARDS_STORAGE_KEY);
-    const storedActiveBoardId = Number(localStorage.getItem(ACTIVE_BOARD_STORAGE_KEY));
-
-    if (storedBoards) {
-      const parsedBoards = JSON.parse(storedBoards);
-      if (Array.isArray(parsedBoards) && parsedBoards.length) {
-        boards.splice(
-          0,
-          boards.length,
-          ...parsedBoards.map((board, index) =>
-            {
-              const normalizedTasks = normalizeTasks(board?.tasks);
-              const normalizedTrashedTasks = normalizeTasks(board?.trashedTasks);
-              return createBoard(
-                Number(board?.id) || index + 1,
-                typeof board?.name === 'string' && board.name.trim() ? board.name : `Board ${index + 1}`,
-                normalizedTasks,
-                normalizedTrashedTasks,
-                Number(board?.nextTaskNumber) || getInitialNextTaskNumber(normalizedTasks, normalizedTrashedTasks),
-              );
-            },
-          ),
-        );
-        activeBoardId = Number.isFinite(storedActiveBoardId) ? storedActiveBoardId : boards[0].id;
-        if (!boards.some((board) => board.id === activeBoardId)) {
-          activeBoardId = boards[0].id;
-        }
-        syncTasksFromActiveBoard();
-        return;
-      }
-    }
-
-    const legacyTasks = JSON.parse(localStorage.getItem(LEGACY_TASKS_STORAGE_KEY) ?? '[]');
-    const normalizedLegacyTasks = normalizeTasks(legacyTasks);
-    const defaultBoard = createBoard(1, 'Board 1', normalizedLegacyTasks, [], getInitialNextTaskNumber(normalizedLegacyTasks));
-    boards.splice(0, boards.length, defaultBoard);
-    activeBoardId = defaultBoard.id;
-    syncTasksFromActiveBoard();
-    saveBoards();
-  } catch {
-    localStorage.removeItem(BOARDS_STORAGE_KEY);
-    localStorage.removeItem(ACTIVE_BOARD_STORAGE_KEY);
-    const defaultBoard = createBoard(1, 'Board 1', [], [], 1);
-    boards.splice(0, boards.length, defaultBoard);
-    activeBoardId = defaultBoard.id;
-    syncTasksFromActiveBoard();
-  }
+  loadDefaultState();
 };
 
 const addBoard = () => {
@@ -288,35 +350,19 @@ const emptyTrash = () => {
 };
 
 const saveMenuSections = () => {
-  localStorage.setItem(
-    MENU_SECTIONS_STORAGE_KEY,
-    JSON.stringify({
-      completed: isCompletedSectionCollapsed,
-      trash: isTrashSectionCollapsed,
-    }),
-  );
+  requestPersist();
 };
 
 const loadMenuSections = () => {
-  try {
-    const storedSections = JSON.parse(localStorage.getItem(MENU_SECTIONS_STORAGE_KEY) ?? '{}');
-    isCompletedSectionCollapsed = Boolean(storedSections.completed);
-    isTrashSectionCollapsed = Boolean(storedSections.trash);
-  } catch {
-    localStorage.removeItem(MENU_SECTIONS_STORAGE_KEY);
-  }
+  // loaded from file state when connected
 };
 
 const saveSidebarState = () => {
-  localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(isSidebarCollapsed));
+  requestPersist();
 };
 
 const loadSidebarState = () => {
-  try {
-    isSidebarCollapsed = Boolean(JSON.parse(localStorage.getItem(SIDEBAR_STORAGE_KEY) ?? 'false'));
-  } catch {
-    localStorage.removeItem(SIDEBAR_STORAGE_KEY);
-  }
+  // loaded from file state when connected
 };
 
 const toggleSidebar = () => {
@@ -339,14 +385,11 @@ const toggleMenuSection = (section) => {
 };
 
 const saveZoom = () => {
-  localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
+  requestPersist();
 };
 
 const loadZoom = () => {
-  const storedZoom = Number(localStorage.getItem(ZOOM_STORAGE_KEY));
-  if (Number.isFinite(storedZoom)) {
-    zoom = clamp(storedZoom, MIN_ZOOM, MAX_ZOOM);
-  }
+  // loaded from file state when connected
 };
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -612,6 +655,7 @@ const render = () => {
           <button class="left-menu-collapse-button" type="button" aria-label="${isSidebarCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}" data-toggle-sidebar>
             <i class="bi ${isSidebarCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'}" aria-hidden="true"></i>
           </button>
+          <button class="left-menu-file-button" type="button" data-connect-file>${dataFileHandle ? 'File connected' : 'Open data file'}</button>
         </div>
         <div class="left-menu-head">
           <h2 class="left-menu-title">Boards</h2>
@@ -668,6 +712,9 @@ const render = () => {
   `;
 
   document.querySelector('[data-toggle-sidebar]')?.addEventListener('click', toggleSidebar);
+  document.querySelector('[data-connect-file]')?.addEventListener('click', () => {
+    void connectDataFile();
+  });
 
   document.querySelector('[data-add-board]')?.addEventListener('click', addBoard);
 

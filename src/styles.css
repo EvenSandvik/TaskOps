@@ -87,7 +87,19 @@ button {
 .left-menu-topbar {
   display: flex;
   justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 12px;
+}
+
+.left-menu-file-button {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 0.72rem;
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
 }
 
 .left-menu-head {
@@ -115,6 +127,7 @@ button {
 }
 
 .left-menu.is-collapsed .left-menu-title,
+.left-menu.is-collapsed .left-menu-file-button,
 .left-menu.is-collapsed .left-menu-add-board,
 .left-menu.is-collapsed .board-menu-list,
 .left-menu.is-collapsed .menu-section {

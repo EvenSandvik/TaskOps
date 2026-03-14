@@ -41,6 +41,7 @@ let undoTrashState = null;
 let undoTrashTimer = null;
 let draggedBoardId = null;
 let saveIndicatorTimer = null;
+let isSaveIndicatorVisible = false;
 let dataFileHandle = null;
 
 const FILE_HANDLE_DB_NAME = 'tasktrack-file-handle-db';
@@ -51,14 +52,12 @@ const app = document.querySelector('#app');
 
 const showSaveIndicator = () => {
   clearTimeout(saveIndicatorTimer);
-  const indicator = document.querySelector('[data-save-indicator]');
-  if (!indicator) {
-    return;
-  }
+  isSaveIndicatorVisible = true;
+  render();
 
-  indicator.classList.add('is-visible');
   saveIndicatorTimer = window.setTimeout(() => {
-    indicator.classList.remove('is-visible');
+    isSaveIndicatorVisible = false;
+    render();
   }, 2000);
 };
 
@@ -168,7 +167,7 @@ const createTask = (id) => ({
   title: `#${id}`,
   details: '',
   completed: false,
-  color: null,
+  color: TASK_COLORS[Math.floor(Math.random() * TASK_COLORS.length)],
   width: DEFAULT_TASK_WIDTH,
   notes: [],
 });
@@ -329,9 +328,9 @@ const persistStateToFile = async () => {
   return true;
 };
 
-const requestPersist = () => {
+const requestPersist = ({ showSaved = false } = {}) => {
   void persistStateToFile().then((saved) => {
-    if (saved) {
+    if (saved && showSaved) {
       showSaveIndicator();
     }
   }).catch(() => {
@@ -472,18 +471,18 @@ const connectDataFile = async () => {
   }
 };
 
-const saveBoards = () => {
-  requestPersist();
+const saveBoards = ({ showSaved = false } = {}) => {
+  requestPersist({ showSaved });
 };
 
-const saveTasks = () => {
+const saveTasks = ({ showSaved = false } = {}) => {
   const board = getActiveBoard();
   if (!board) {
     return;
   }
 
   board.tasks = normalizeTasks(tasks);
-  saveBoards();
+  saveBoards({ showSaved });
 };
 
 const loadBoards = () => {
@@ -783,7 +782,7 @@ const updateTask = (id, key, value) => {
   }
 
   task[key] = value;
-  saveTasks();
+  saveTasks({ showSaved: true });
 };
 
 const setTaskWidth = (id, nextWidth, { persist = false } = {}) => {
@@ -833,7 +832,7 @@ const toggleTaskCompleted = (id) => {
   }
 
   task.completed = !task.completed;
-  saveTasks();
+  saveTasks({ showSaved: true });
   render();
 };
 
@@ -849,7 +848,7 @@ const addTaskNote = (taskId, text) => {
     createdAt: Date.now(),
   });
 
-  saveTasks();
+  saveTasks({ showSaved: true });
   render();
 };
 
@@ -925,7 +924,6 @@ const taskCard = (task) => {
   return `
   <section class="task-column" data-task-column data-task-id="${task.id}" style="--task-width: ${clampTaskWidth(task.width)}px;">
     <article class="task-card ${task.completed ? 'is-completed' : ''}"
-             style="${task.color ? `border-left: 3px solid ${TASK_COLOR_MAP[task.color]};` : ''}"
              data-task-card data-task-id="${task.id}">
       <div class="task-card-header">
         <button
@@ -938,15 +936,6 @@ const taskCard = (task) => {
         >
           <i class="bi ${task.completed ? 'bi-check-circle-fill' : 'bi-circle'}" aria-hidden="true"></i>
         </button>
-        <button
-          class="task-color-dot${task.color ? ' has-color' : ''}"
-          style="${task.color ? `background: ${TASK_COLOR_MAP[task.color]};` : ''}"
-          type="button"
-          aria-label="Set task color"
-          title="Color label"
-          data-color-toggle
-          data-task-id="${task.id}"
-        ></button>
         <button
           class="drag-task-button"
           type="button"
@@ -967,12 +956,6 @@ const taskCard = (task) => {
           data-task-id="${task.id}"
         />
       </div>
-      ${activeColorPickerTaskId === task.id ? `
-      <div class="task-color-picker" data-color-picker data-task-id="${task.id}">
-        ${TASK_COLORS.map((c) => `<button class="color-swatch${task.color === c ? ' is-selected' : ''}" style="background:${TASK_COLOR_MAP[c]};" type="button" data-pick-color="${c}" data-task-id="${task.id}" title="${c}"></button>`).join('')}
-        <button class="color-swatch color-swatch-clear${!task.color ? ' is-selected' : ''}" type="button" data-pick-color="" data-task-id="${task.id}" title="Clear color">✕</button>
-      </div>
-      ` : ''}
       <textarea
         class="task-details task-details-input"
         rows="8"
@@ -1039,10 +1022,6 @@ const render = () => {
   const prevSearchFocused =
     document.activeElement instanceof HTMLInputElement &&
     document.activeElement.hasAttribute('data-search');
-
-  if (activeColorPickerTaskId !== null && !tasks.find((t) => t.id === activeColorPickerTaskId)) {
-    activeColorPickerTaskId = null;
-  }
 
   const activeBoard = getActiveBoard();
   const completedTasks = tasks.filter((task) => task.completed);
@@ -1111,9 +1090,11 @@ const render = () => {
         </button>
       </div>
 
-      <div class="save-indicator" data-save-indicator aria-live="polite" aria-atomic="true">
+      ${isSaveIndicatorVisible
+        ? `<div class="save-indicator is-visible" data-save-indicator aria-live="polite" aria-atomic="true">
         <i class="bi bi-check2" aria-hidden="true"></i> Saved
-      </div>
+      </div>`
+        : ''}
 
       ${undoTrashState ? `
       <div class="undo-toast" data-undo-toast>
@@ -1232,31 +1213,6 @@ const render = () => {
 
   document.querySelector('[data-undo-trash]')?.addEventListener('click', undoLastTrash);
   document.querySelector('[data-dismiss-undo]')?.addEventListener('click', dismissUndoToast);
-
-  document.querySelectorAll('[data-color-toggle]').forEach((btn) => {
-    btn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const id = Number(btn.dataset.taskId);
-      activeColorPickerTaskId = activeColorPickerTaskId === id ? null : id;
-      render();
-    });
-  });
-
-  document.querySelectorAll('[data-pick-color]').forEach((btn) => {
-    btn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const id = Number(btn.dataset.taskId);
-      const color = btn.dataset.pickColor || null;
-      const task = tasks.find((t) => t.id === id);
-      if (task) {
-        task.color = color;
-        saveTasks();
-      }
-
-      activeColorPickerTaskId = null;
-      render();
-    });
-  });
 
   // Board drag-to-reorder
   let didHandleBoardDrop = false;
@@ -1626,10 +1582,6 @@ const render = () => {
       }
     });
 
-    if (activeColorPickerTaskId !== null && event.target instanceof Element && !event.target.closest('[data-color-picker], [data-color-toggle]')) {
-      activeColorPickerTaskId = null;
-      render();
-    }
   });
 
   const viewport = document.querySelector('[data-viewport]');

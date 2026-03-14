@@ -19,30 +19,30 @@
           ]
         },
         {
-          "id": 2,
-          "title": "test 2",
+          "id": 3,
+          "title": "#3",
           "details": "",
           "completed": true,
+          "color": "yellow",
+          "width": 617.4567394889344,
+          "notes": [
+            {
+              "text": "test",
+              "createdAt": 1773517268286
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "test 2",
+          "details": "A",
+          "completed": false,
           "color": "red",
           "width": 540.5024145661291,
           "notes": [
             {
               "text": "test 2",
               "createdAt": 1773516875445
-            }
-          ]
-        },
-        {
-          "id": 3,
-          "title": "#3",
-          "details": "",
-          "completed": true,
-          "color": "yellow",
-          "width": 659.0552833605147,
-          "notes": [
-            {
-              "text": "test",
-              "createdAt": 1773517268286
             }
           ]
         },
@@ -64,26 +64,8 @@
       "name": "Forvaltning",
       "tasks": [
         {
-          "id": 1,
-          "title": "#1",
-          "details": "",
-          "completed": false,
-          "color": null,
-          "width": 420,
-          "notes": []
-        },
-        {
           "id": 2,
           "title": "#2",
-          "details": "",
-          "completed": false,
-          "color": null,
-          "width": 420,
-          "notes": []
-        },
-        {
-          "id": 3,
-          "title": "#3",
           "details": "",
           "completed": false,
           "color": null,
@@ -109,15 +91,34 @@
           "notes": []
         }
       ],
-      "trashedTasks": [],
+      "trashedTasks": [
+        {
+          "id": 1,
+          "title": "#1",
+          "details": "",
+          "completed": false,
+          "color": null,
+          "width": 420,
+          "notes": []
+        },
+        {
+          "id": 3,
+          "title": "#3",
+          "details": "",
+          "completed": false,
+          "color": null,
+          "width": 420,
+          "notes": []
+        }
+      ],
       "nextTaskNumber": 6
     }
   ],
   "activeBoardId": 1,
-  "zoom": 0.5327849492594607,
+  "zoom": 0.4672908522558412,
   "menuSections": {
     "completed": true,
-    "trash": true
+    "trash": false
   },
   "sidebarCollapsed": false,
   "boardCompletedCollapsed": false

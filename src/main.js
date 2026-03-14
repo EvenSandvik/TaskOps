@@ -190,12 +190,8 @@ const formatNoteTime = (time) => {
   });
 };
 
-const getTimelineHtml = (notes) => {
-  if (!notes.length) {
-    return '';
-  }
-
-  return notes
+const getTimelineHtml = (notes, isCompleted = false) => {
+  const notesHtml = notes
     .toSorted((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
     .map(
       (note) => `
@@ -208,6 +204,18 @@ const getTimelineHtml = (notes) => {
       `,
     )
     .join('');
+
+  const finishedHtml = isCompleted
+    ? `
+        <li class="timeline-item timeline-item-finished">
+          <div class="timeline-content">
+            <p class="timeline-note timeline-note-finished"><i class="bi bi-check2-circle" aria-hidden="true"></i> Finished</p>
+          </div>
+        </li>
+      `
+    : '';
+
+  return `${notesHtml}${finishedHtml}`;
 };
 
 const normalizeTasks = (rawTasks) => {
@@ -706,7 +714,10 @@ const moveTaskToIndex = (taskId, toIndex) => {
   render();
 };
 
-const taskCard = (task) => `
+const taskCard = (task) => {
+  const timelineHtml = getTimelineHtml(task.notes, task.completed);
+
+  return `
   <section class="task-column" data-task-column data-task-id="${task.id}">
     <article class="task-card ${task.completed ? 'is-completed' : ''}" data-task-card data-task-id="${task.id}">
       <div class="task-card-header">
@@ -753,8 +764,8 @@ const taskCard = (task) => `
       </div>
     </article>
     <section class="task-timeline">
-      <ul class="timeline-list ${task.notes.length ? '' : 'is-empty'}" data-timeline-list>
-        ${getTimelineHtml(task.notes)}
+      <ul class="timeline-list ${timelineHtml.trim() ? '' : 'is-empty'}" data-timeline-list>
+        ${timelineHtml}
       </ul>
       <div class="timeline-compose">
         <button class="timeline-plus-button" type="button" aria-label="Add status note" data-open-note-composer data-task-id="${task.id}">+</button>
@@ -773,6 +784,7 @@ const taskCard = (task) => `
     </section>
   </section>
 `;
+};
 
 const taskMenuPreview = (task) => `
   <li class="menu-task-item">${escapeHtml(task.title)}</li>

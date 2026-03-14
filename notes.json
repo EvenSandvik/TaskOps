@@ -6,14 +6,31 @@
       "tasks": [
         {
           "id": 1,
-          "title": "#1",
+          "title": "test",
           "details": "",
           "completed": false,
-          "notes": []
+          "notes": [
+            {
+              "text": "test",
+              "createdAt": 1773516862411
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "test 2",
+          "details": "",
+          "completed": true,
+          "notes": [
+            {
+              "text": "test 2",
+              "createdAt": 1773516875445
+            }
+          ]
         }
       ],
       "trashedTasks": [],
-      "nextTaskNumber": 2
+      "nextTaskNumber": 3
     },
     {
       "id": 2,
@@ -24,7 +41,7 @@
     }
   ],
   "activeBoardId": 1,
-  "zoom": 1,
+  "zoom": 0.8579918840855358,
   "menuSections": {
     "completed": false,
     "trash": false

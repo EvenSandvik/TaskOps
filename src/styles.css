@@ -616,6 +616,10 @@ button {
   box-shadow: 0 0 0 2px #ffffff;
 }
 
+.timeline-item-finished::before {
+  background: #16a34a;
+}
+
 .timeline-content {
   display: grid;
   gap: 4px;
@@ -627,6 +631,18 @@ button {
   line-height: 1.35;
   color: #1f2937;
   word-break: break-word;
+}
+
+.timeline-note-finished {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #166534;
+  font-weight: 600;
+}
+
+.timeline-note-finished .bi {
+  font-size: 0.95rem;
 }
 
 .timeline-note a {

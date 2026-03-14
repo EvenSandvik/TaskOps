@@ -156,7 +156,7 @@ button {
 
 .board-menu-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 4px;
   align-items: center;
   padding: 4px 8px 4px 0;
@@ -231,6 +231,55 @@ button {
 .board-menu-icon:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.board-drag-handle {
+  width: 22px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: grab;
+  font-size: 0.75rem;
+  letter-spacing: -0.18em;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.board-menu-item:hover .board-drag-handle {
+  opacity: 1;
+}
+
+.board-drag-handle:active {
+  cursor: grabbing;
+  color: #94a3b8;
+}
+
+.board-menu-item.is-dragging-board {
+  opacity: 0.45;
+}
+
+.board-menu-item.is-board-drop-target .board-menu-switch {
+  background: #f1f5f9;
+}
+
+.board-task-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
 }
 
 .menu-section {
@@ -320,9 +369,49 @@ button {
   left: 308px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   z-index: 2;
   transition: left 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.search-input {
+  height: 40px;
+  border: 1px solid #e4e4e7;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 0 12px;
+  font-size: 0.88rem;
+  color: #1f2937;
+  outline: none;
+  width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.search-input:focus {
+  border-color: #94a3b8;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.toolbar-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.toolbar-btn.is-active {
+  background: #1f2937;
+  color: #ffffff;
+  border-color: #1f2937;
 }
 
 .menu-toggle-button {
@@ -386,6 +475,32 @@ button {
 }
 
 .zoom-indicator.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.save-indicator {
+  position: fixed;
+  top: 18px;
+  right: 20px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  font-size: 0.78rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+  z-index: 10;
+}
+
+.save-indicator.is-visible {
   opacity: 1;
   transform: translateY(0);
 }
@@ -461,6 +576,70 @@ button {
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.16);
 }
 
+.task-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid #e5e7eb;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+
+.task-color-dot:hover {
+  border-color: #94a3b8;
+  transform: scale(1.15);
+}
+
+.task-color-dot.has-color {
+  border-color: transparent;
+}
+
+.task-color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.10);
+}
+
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.2);
+}
+
+.color-swatch.is-selected {
+  border-color: #1f2937;
+  transform: scale(1.15);
+}
+
+.color-swatch-clear {
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 0.75rem;
+  display: grid;
+  place-items: center;
+  border-color: #e5e7eb;
+}
+
+.color-swatch-clear.is-selected {
+  border-color: #6b7280;
+}
+
 .task-resize-handle {
   position: absolute;
   top: 50%;
@@ -489,7 +668,7 @@ button {
 
 .task-card-header {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
 }
@@ -834,6 +1013,65 @@ button {
 .trash-zone-icon {
   font-size: 0.78rem;
   line-height: 1;
+}
+
+.undo-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #1f2937;
+  color: #f9fafb;
+  font-size: 0.86rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  z-index: 20;
+  animation: toastIn 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.undo-toast-text {
+  color: #d1d5db;
+}
+
+.undo-toast-btn {
+  border: 1px solid #4b5563;
+  background: transparent;
+  color: #f9fafb;
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 140ms ease;
+}
+
+.undo-toast-btn:hover {
+  background: #374151;
+}
+
+.undo-toast-dismiss {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 1rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: color 140ms ease;
+}
+
+.undo-toast-dismiss:hover {
+  color: #f9fafb;
 }
 
 body.is-dragging-task .trash-zone {

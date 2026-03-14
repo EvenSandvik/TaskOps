@@ -10,6 +10,16 @@ const DETAILS_PLACEHOLDER = 'Write the task here...';
 const DEFAULT_TASK_WIDTH = 420;
 const MIN_TASK_WIDTH = 300;
 const MAX_TASK_WIDTH = 920;
+const TASK_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'];
+const TASK_COLOR_MAP = {
+  red: '#ef4444',
+  orange: '#f97316',
+  yellow: '#f59e0b',
+  green: '#22c55e',
+  blue: '#3b82f6',
+  purple: '#a855f7',
+  pink: '#ec4899',
+};
 const tasks = [];
 const boards = [];
 let activeBoardId = null;
@@ -24,6 +34,13 @@ let isCompletedSectionCollapsed = false;
 let isTrashSectionCollapsed = false;
 let isSidebarCollapsed = false;
 let editingBoardId = null;
+let searchQuery = '';
+let isBoardCompletedCollapsed = false;
+let activeColorPickerTaskId = null;
+let undoTrashState = null;
+let undoTrashTimer = null;
+let draggedBoardId = null;
+let saveIndicatorTimer = null;
 let dataFileHandle = null;
 
 const FILE_HANDLE_DB_NAME = 'tasktrack-file-handle-db';
@@ -31,6 +48,19 @@ const FILE_HANDLE_STORE_NAME = 'handles';
 const FILE_HANDLE_KEY = 'primary';
 
 const app = document.querySelector('#app');
+
+const showSaveIndicator = () => {
+  clearTimeout(saveIndicatorTimer);
+  const indicator = document.querySelector('[data-save-indicator]');
+  if (!indicator) {
+    return;
+  }
+
+  indicator.classList.add('is-visible');
+  saveIndicatorTimer = window.setTimeout(() => {
+    indicator.classList.remove('is-visible');
+  }, 2000);
+};
 
 const openFileHandleDb = () =>
   new Promise((resolve, reject) => {
@@ -138,6 +168,7 @@ const createTask = (id) => ({
   title: `#${id}`,
   details: '',
   completed: false,
+  color: null,
   width: DEFAULT_TASK_WIDTH,
   notes: [],
 });
@@ -245,6 +276,7 @@ const normalizeTasks = (rawTasks) => {
     title: typeof task.title === 'string' && task.title.trim() ? task.title : `#${index + 1}`,
     details: typeof task.details === 'string' ? task.details : '',
     completed: Boolean(task.completed),
+    color: TASK_COLORS.includes(task.color) ? task.color : null,
     width: clampTaskWidth(task.width),
     notes: Array.isArray(task.notes)
       ? task.notes
@@ -283,20 +315,26 @@ const buildPersistedState = () => ({
     trash: isTrashSectionCollapsed,
   },
   sidebarCollapsed: isSidebarCollapsed,
+  boardCompletedCollapsed: isBoardCompletedCollapsed,
 });
 
 const persistStateToFile = async () => {
   if (!dataFileHandle) {
-    return;
+    return false;
   }
 
   const writable = await dataFileHandle.createWritable();
   await writable.write(JSON.stringify(buildPersistedState(), null, 2));
   await writable.close();
+  return true;
 };
 
 const requestPersist = () => {
-  void persistStateToFile().catch(() => {
+  void persistStateToFile().then((saved) => {
+    if (saved) {
+      showSaveIndicator();
+    }
+  }).catch(() => {
     // ignore write failures silently to avoid breaking interaction flow
   });
 };
@@ -309,6 +347,7 @@ const loadDefaultState = () => {
   isCompletedSectionCollapsed = false;
   isTrashSectionCollapsed = false;
   isSidebarCollapsed = false;
+  isBoardCompletedCollapsed = false;
   syncTasksFromActiveBoard();
 };
 
@@ -350,6 +389,7 @@ const restoreStateFromFile = (state) => {
   isCompletedSectionCollapsed = Boolean(state?.menuSections?.completed);
   isTrashSectionCollapsed = Boolean(state?.menuSections?.trash);
   isSidebarCollapsed = Boolean(state?.sidebarCollapsed);
+  isBoardCompletedCollapsed = Boolean(state?.boardCompletedCollapsed);
 
   syncTasksFromActiveBoard();
 };
@@ -774,6 +814,15 @@ const deleteTask = (id) => {
     });
   }
   saveTasks();
+
+  clearTimeout(undoTrashTimer);
+  undoTrashState = { task: removedTask, boardId: activeBoardId };
+  undoTrashTimer = window.setTimeout(() => {
+    undoTrashState = null;
+    undoTrashTimer = null;
+    render();
+  }, 5000);
+
   render();
 };
 
@@ -817,12 +866,67 @@ const moveTaskToIndex = (taskId, toIndex) => {
   render();
 };
 
+const undoLastTrash = () => {
+  if (!undoTrashState) {
+    return;
+  }
+
+  const { task, boardId } = undoTrashState;
+  clearTimeout(undoTrashTimer);
+  undoTrashTimer = null;
+  undoTrashState = null;
+
+  const targetBoard = boards.find((b) => b.id === boardId);
+  if (targetBoard) {
+    const trashIndex = targetBoard.trashedTasks.findIndex((t) => t.id === task.id);
+    if (trashIndex !== -1) {
+      targetBoard.trashedTasks.splice(trashIndex, 1);
+    }
+
+    targetBoard.tasks.push({ ...task });
+    if (boardId === activeBoardId) {
+      syncTasksFromActiveBoard();
+    }
+
+    saveTasks();
+  }
+
+  render();
+};
+
+const dismissUndoToast = () => {
+  clearTimeout(undoTrashTimer);
+  undoTrashTimer = null;
+  undoTrashState = null;
+  render();
+};
+
+const toggleBoardCompletedOnBoard = () => {
+  isBoardCompletedCollapsed = !isBoardCompletedCollapsed;
+  requestPersist();
+  render();
+};
+
+const moveBoardToIndex = (boardId, toIndex) => {
+  const fromIndex = boards.findIndex((b) => b.id === boardId);
+  if (fromIndex === -1 || toIndex < 0 || toIndex >= boards.length || fromIndex === toIndex) {
+    return;
+  }
+
+  const [board] = boards.splice(fromIndex, 1);
+  boards.splice(toIndex, 0, board);
+  saveBoards();
+  render();
+};
+
 const taskCard = (task) => {
   const timelineHtml = getTimelineHtml(task.notes, task.completed);
 
   return `
   <section class="task-column" data-task-column data-task-id="${task.id}" style="--task-width: ${clampTaskWidth(task.width)}px;">
-    <article class="task-card ${task.completed ? 'is-completed' : ''}" data-task-card data-task-id="${task.id}">
+    <article class="task-card ${task.completed ? 'is-completed' : ''}"
+             style="${task.color ? `border-left: 3px solid ${TASK_COLOR_MAP[task.color]};` : ''}"
+             data-task-card data-task-id="${task.id}">
       <div class="task-card-header">
         <button
           class="complete-task-button"
@@ -834,6 +938,15 @@ const taskCard = (task) => {
         >
           <i class="bi ${task.completed ? 'bi-check-circle-fill' : 'bi-circle'}" aria-hidden="true"></i>
         </button>
+        <button
+          class="task-color-dot${task.color ? ' has-color' : ''}"
+          style="${task.color ? `background: ${TASK_COLOR_MAP[task.color]};` : ''}"
+          type="button"
+          aria-label="Set task color"
+          title="Color label"
+          data-color-toggle
+          data-task-id="${task.id}"
+        ></button>
         <button
           class="drag-task-button"
           type="button"
@@ -854,6 +967,12 @@ const taskCard = (task) => {
           data-task-id="${task.id}"
         />
       </div>
+      ${activeColorPickerTaskId === task.id ? `
+      <div class="task-color-picker" data-color-picker data-task-id="${task.id}">
+        ${TASK_COLORS.map((c) => `<button class="color-swatch${task.color === c ? ' is-selected' : ''}" style="background:${TASK_COLOR_MAP[c]};" type="button" data-pick-color="${c}" data-task-id="${task.id}" title="${c}"></button>`).join('')}
+        <button class="color-swatch color-swatch-clear${!task.color ? ' is-selected' : ''}" type="button" data-pick-color="" data-task-id="${task.id}" title="Clear color">✕</button>
+      </div>
+      ` : ''}
       <textarea
         class="task-details task-details-input"
         rows="8"
@@ -901,21 +1020,45 @@ const taskMenuPreview = (task) => `
   <li class="menu-task-item">${escapeHtml(task.title)}</li>
 `;
 
-const boardMenuItem = (board) => `
-  <li class="board-menu-item ${board.id === activeBoardId ? 'is-active' : ''}">
+const boardMenuItem = (board) => {
+  const activeCount = board.tasks.filter((t) => !t.completed).length;
+  return `
+  <li class="board-menu-item ${board.id === activeBoardId ? 'is-active' : ''}" data-board-item data-board-id="${board.id}">
+    <button class="board-drag-handle" type="button" draggable="true" data-drag-board data-board-id="${board.id}" aria-label="Drag to reorder board">⋮⋮</button>
     ${editingBoardId === board.id
     ? `<input class="board-menu-edit-input" type="text" value="${escapeHtml(board.name)}" aria-label="Edit board name" data-edit-board-name data-board-id="${board.id}" />`
-    : `<button class="board-menu-switch" type="button" data-switch-board data-board-id="${board.id}">${escapeHtml(board.name)}</button>`}
+    : `<button class="board-menu-switch" type="button" data-switch-board data-board-id="${board.id}">${escapeHtml(board.name)}${activeCount > 0 ? `<span class="board-task-count">${activeCount}</span>` : ''}</button>`}
     <button class="board-menu-icon" type="button" aria-label="Slett board" data-delete-board data-board-id="${board.id}" ${boards.length <= 1 ? 'disabled' : ''}>
       <i class="bi bi-trash3" aria-hidden="true"></i>
     </button>
   </li>
-`;
+  `;
+};
 
 const render = () => {
+  const prevSearchFocused =
+    document.activeElement instanceof HTMLInputElement &&
+    document.activeElement.hasAttribute('data-search');
+
+  if (activeColorPickerTaskId !== null && !tasks.find((t) => t.id === activeColorPickerTaskId)) {
+    activeColorPickerTaskId = null;
+  }
+
   const activeBoard = getActiveBoard();
   const completedTasks = tasks.filter((task) => task.completed);
   const trashedTasks = activeBoard?.trashedTasks ?? [];
+  const q = searchQuery.toLowerCase().trim();
+  const visibleTasks = tasks.filter((task) => {
+    if (isBoardCompletedCollapsed && task.completed) {
+      return false;
+    }
+
+    if (q) {
+      return task.title.toLowerCase().includes(q) || task.details.toLowerCase().includes(q);
+    }
+
+    return true;
+  });
 
   app.innerHTML = `
     <main class="shell ${isSidebarCollapsed ? 'is-sidebar-collapsed' : ''}">
@@ -962,11 +1105,27 @@ const render = () => {
         <button class="add-task-button" type="button" aria-label="Add task" data-add-task>
           +
         </button>
+        <input class="search-input" type="search" placeholder="Search tasks…" value="${escapeHtml(searchQuery)}" data-search />
+        <button class="toolbar-btn${isBoardCompletedCollapsed ? ' is-active' : ''}" type="button" data-toggle-board-completed title="${isBoardCompletedCollapsed ? 'Show completed tasks' : 'Hide completed tasks'}">
+          <i class="bi bi-eye${isBoardCompletedCollapsed ? '-slash' : ''}" aria-hidden="true"></i>
+        </button>
       </div>
+
+      <div class="save-indicator" data-save-indicator aria-live="polite" aria-atomic="true">
+        <i class="bi bi-check2" aria-hidden="true"></i> Saved
+      </div>
+
+      ${undoTrashState ? `
+      <div class="undo-toast" data-undo-toast>
+        <span class="undo-toast-text">Task moved to trash</span>
+        <button class="undo-toast-btn" type="button" data-undo-trash>Undo</button>
+        <button class="undo-toast-dismiss" type="button" data-dismiss-undo aria-label="Dismiss"><i class="bi bi-x" aria-hidden="true"></i></button>
+      </div>
+      ` : ''}
 
       <section class="board-viewport" data-viewport>
         <div class="board" data-board>
-          ${tasks.map(taskCard).join('')}
+          ${visibleTasks.map(taskCard).join('')}
         </div>
       </section>
 
@@ -1053,6 +1212,138 @@ const render = () => {
   });
 
   document.querySelector('[data-add-task]')?.addEventListener('click', addTask);
+
+  document.querySelector('[data-search]')?.addEventListener('input', (event) => {
+    searchQuery = event.currentTarget.value;
+    const sq = searchQuery.toLowerCase().trim();
+    document.querySelectorAll('[data-task-column]').forEach((col) => {
+      const taskId = Number(col.dataset.taskId);
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) {
+        return;
+      }
+
+      const matches = !sq || task.title.toLowerCase().includes(sq) || task.details.toLowerCase().includes(sq);
+      col.style.display = matches ? '' : 'none';
+    });
+  });
+
+  document.querySelector('[data-toggle-board-completed]')?.addEventListener('click', toggleBoardCompletedOnBoard);
+
+  document.querySelector('[data-undo-trash]')?.addEventListener('click', undoLastTrash);
+  document.querySelector('[data-dismiss-undo]')?.addEventListener('click', dismissUndoToast);
+
+  document.querySelectorAll('[data-color-toggle]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const id = Number(btn.dataset.taskId);
+      activeColorPickerTaskId = activeColorPickerTaskId === id ? null : id;
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-pick-color]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const id = Number(btn.dataset.taskId);
+      const color = btn.dataset.pickColor || null;
+      const task = tasks.find((t) => t.id === id);
+      if (task) {
+        task.color = color;
+        saveTasks();
+      }
+
+      activeColorPickerTaskId = null;
+      render();
+    });
+  });
+
+  // Board drag-to-reorder
+  let didHandleBoardDrop = false;
+
+  document.querySelectorAll('[data-drag-board]').forEach((handle) => {
+    handle.addEventListener('dragstart', (event) => {
+      const id = Number(handle.dataset.boardId);
+      draggedBoardId = id;
+      didHandleBoardDrop = false;
+      event.dataTransfer?.setData('text/plain', String(id));
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+      }
+
+      handle.closest('[data-board-item]')?.classList.add('is-dragging-board');
+    });
+
+    handle.addEventListener('dragend', () => {
+      document.querySelectorAll('[data-board-item].is-dragging-board').forEach((el) => el.classList.remove('is-dragging-board'));
+      document.querySelectorAll('[data-board-item].is-board-drop-target').forEach((el) => el.classList.remove('is-board-drop-target'));
+      if (!didHandleBoardDrop) {
+        render();
+      }
+
+      draggedBoardId = null;
+    });
+  });
+
+  document.querySelectorAll('[data-board-item]').forEach((item) => {
+    item.addEventListener('dragover', (event) => {
+      if (!draggedBoardId) {
+        return;
+      }
+
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+
+      const overId = Number(item.dataset.boardId);
+      if (overId === draggedBoardId) {
+        return;
+      }
+
+      const list = item.closest('.board-menu-list');
+      if (!list) {
+        return;
+      }
+
+      const items = Array.from(list.querySelectorAll('[data-board-item]'));
+      const fromEl = items.find((el) => Number(el.dataset.boardId) === draggedBoardId);
+      if (!fromEl || fromEl === item) {
+        return;
+      }
+
+      const fromIdx = items.indexOf(fromEl);
+      const overIdx = items.indexOf(item);
+      if (fromIdx < overIdx) {
+        list.insertBefore(fromEl, item.nextSibling);
+      } else {
+        list.insertBefore(fromEl, item);
+      }
+
+      item.classList.add('is-board-drop-target');
+    });
+
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('is-board-drop-target');
+    });
+
+    item.addEventListener('drop', (event) => {
+      event.preventDefault();
+      item.classList.remove('is-board-drop-target');
+      if (!draggedBoardId) {
+        return;
+      }
+
+      const fromId = draggedBoardId;
+      const list = item.closest('.board-menu-list');
+      const items = list ? Array.from(list.querySelectorAll('[data-board-item]')) : [];
+      const newIndex = items.findIndex((el) => Number(el.dataset.boardId) === fromId);
+
+      didHandleBoardDrop = true;
+      draggedBoardId = null;
+      moveBoardToIndex(fromId, newIndex);
+    });
+  });
 
   document.querySelectorAll('[data-drag-task]').forEach((element) => {
     element.addEventListener('dragstart', (event) => {
@@ -1334,6 +1625,11 @@ const render = () => {
         draft.value = '';
       }
     });
+
+    if (activeColorPickerTaskId !== null && event.target instanceof Element && !event.target.closest('[data-color-picker], [data-color-toggle]')) {
+      activeColorPickerTaskId = null;
+      render();
+    }
   });
 
   const viewport = document.querySelector('[data-viewport]');
@@ -1367,6 +1663,13 @@ const render = () => {
   };
 
   applyZoom({ showIndicator: false });
+
+  if (prevSearchFocused) {
+    const searchEl = document.querySelector('[data-search]');
+    if (searchEl instanceof HTMLInputElement) {
+      searchEl.focus();
+    }
+  }
 };
 
 const start = async () => {

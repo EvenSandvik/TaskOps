@@ -5,23 +5,11 @@
       "name": "Loggansvar",
       "tasks": [
         {
-          "id": 2,
-          "title": "test 2",
-          "details": "",
-          "completed": true,
-          "width": 540.5024145661291,
-          "notes": [
-            {
-              "text": "test 2",
-              "createdAt": 1773516875445
-            }
-          ]
-        },
-        {
           "id": 1,
           "title": "test",
           "details": "B\nB\nB\nB\n\nB\nB\nB\nB\nB\nB\nb\nB\nB\nB\nB\n\nB\nB\n",
           "completed": false,
+          "color": "purple",
           "width": 300,
           "notes": [
             {
@@ -31,25 +19,41 @@
           ]
         },
         {
-          "id": 4,
-          "title": "#4",
-          "details": "A\nA\nA\nhttps://www.finn.no/realestate/homes/ad.html?finnkode=383715601https://www.finn.no/realestate/homes/ad.html?finnkode=383715601A\nA\nA\n\nA\nA\nAA\n",
+          "id": 2,
+          "title": "test 2",
+          "details": "",
           "completed": true,
-          "width": 760.3499484961735,
-          "notes": []
+          "color": "red",
+          "width": 540.5024145661291,
+          "notes": [
+            {
+              "text": "test 2",
+              "createdAt": 1773516875445
+            }
+          ]
         },
         {
           "id": 3,
           "title": "#3",
           "details": "",
           "completed": true,
-          "width": 327.51286750639645,
+          "color": "yellow",
+          "width": 659.0552833605147,
           "notes": [
             {
               "text": "test",
               "createdAt": 1773517268286
             }
           ]
+        },
+        {
+          "id": 4,
+          "title": "#4",
+          "details": "A\nA\nA\nhttps://www.finn.no/realestate/homes/ad.html?finnkode=383715601https://www.finn.no/realestate/homes/ad.html?finnkode=383715601A\nA\nA\n\nA\nA\nAA\n",
+          "completed": true,
+          "color": "pink",
+          "width": 335.22070869654715,
+          "notes": []
         }
       ],
       "trashedTasks": [],
@@ -64,6 +68,7 @@
           "title": "#1",
           "details": "",
           "completed": false,
+          "color": null,
           "width": 420,
           "notes": []
         },
@@ -72,6 +77,7 @@
           "title": "#2",
           "details": "",
           "completed": false,
+          "color": null,
           "width": 420,
           "notes": []
         },
@@ -80,6 +86,7 @@
           "title": "#3",
           "details": "",
           "completed": false,
+          "color": null,
           "width": 420,
           "notes": []
         },
@@ -88,6 +95,7 @@
           "title": "#4",
           "details": "",
           "completed": false,
+          "color": null,
           "width": 420,
           "notes": []
         },
@@ -96,6 +104,7 @@
           "title": "#5",
           "details": "",
           "completed": false,
+          "color": null,
           "width": 420,
           "notes": []
         }
@@ -105,10 +114,11 @@
     }
   ],
   "activeBoardId": 1,
-  "zoom": 0.53066167215705,
+  "zoom": 0.5327849492594607,
   "menuSections": {
-    "completed": false,
-    "trash": false
+    "completed": true,
+    "trash": true
   },
-  "sidebarCollapsed": false
+  "sidebarCollapsed": false,
+  "boardCompletedCollapsed": false
 }

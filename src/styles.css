@@ -816,7 +816,7 @@ button {
 
 .trash-zone {
   position: fixed;
-  right: 56px;
+  right: 40px;
   bottom: 28px;
   width: 56px;
   height: 40px;
@@ -888,7 +888,7 @@ body.is-dragging-task .trash-zone {
   }
 
   .trash-zone {
-    right: 40px;
+    right: 30px;
     bottom: 20px;
   }
 }

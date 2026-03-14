@@ -31,6 +31,14 @@
           ]
         },
         {
+          "id": 4,
+          "title": "#4",
+          "details": "A\nA\nA\n\nA\nA\nA\n\nA\nA\nAA\n",
+          "completed": true,
+          "width": 760.3499484961735,
+          "notes": []
+        },
+        {
           "id": 3,
           "title": "#3",
           "details": "",
@@ -42,14 +50,6 @@
               "createdAt": 1773517268286
             }
           ]
-        },
-        {
-          "id": 4,
-          "title": "#4",
-          "details": "A\nA\nA\n\nA\nA\nA\n\nA\nA\nAA\n",
-          "completed": true,
-          "width": 760.3499484961735,
-          "notes": []
         }
       ],
       "trashedTasks": [],
@@ -58,13 +58,54 @@
     {
       "id": 2,
       "name": "Forvaltning",
-      "tasks": [],
+      "tasks": [
+        {
+          "id": 1,
+          "title": "#1",
+          "details": "",
+          "completed": false,
+          "width": 420,
+          "notes": []
+        },
+        {
+          "id": 2,
+          "title": "#2",
+          "details": "",
+          "completed": false,
+          "width": 420,
+          "notes": []
+        },
+        {
+          "id": 3,
+          "title": "#3",
+          "details": "",
+          "completed": false,
+          "width": 420,
+          "notes": []
+        },
+        {
+          "id": 4,
+          "title": "#4",
+          "details": "",
+          "completed": false,
+          "width": 420,
+          "notes": []
+        },
+        {
+          "id": 5,
+          "title": "#5",
+          "details": "",
+          "completed": false,
+          "width": 420,
+          "notes": []
+        }
+      ],
       "trashedTasks": [],
-      "nextTaskNumber": 1
+      "nextTaskNumber": 6
     }
   ],
   "activeBoardId": 1,
-  "zoom": 0.5678500407859686,
+  "zoom": 0.3330814398035412,
   "menuSections": {
     "completed": false,
     "trash": false

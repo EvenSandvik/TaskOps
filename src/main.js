@@ -176,7 +176,8 @@ const linkifyText = (text) => {
     const index = match.index ?? 0;
     const url = match[0];
     output += escapeHtml(source.slice(cursor, index));
-    output += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`;
+    const urlLabel = url.length > 40 ? `${url.slice(0, 40)}…` : url;
+    output += `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(url)}">${escapeHtml(urlLabel)}</a>`;
     cursor = index + url.length;
   }
 

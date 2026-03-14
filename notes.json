@@ -33,7 +33,7 @@
         {
           "id": 4,
           "title": "#4",
-          "details": "A\nA\nA\n\nA\nA\nA\n\nA\nA\nAA\n",
+          "details": "A\nA\nA\nhttps://www.finn.no/realestate/homes/ad.html?finnkode=383715601https://www.finn.no/realestate/homes/ad.html?finnkode=383715601A\nA\nA\n\nA\nA\nAA\n",
           "completed": true,
           "width": 760.3499484961735,
           "notes": []
@@ -105,7 +105,7 @@
     }
   ],
   "activeBoardId": 1,
-  "zoom": 0.3330814398035412,
+  "zoom": 0.53066167215705,
   "menuSections": {
     "completed": false,
     "trash": false

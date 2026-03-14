@@ -1,0 +1,33 @@
+{
+  "boards": [
+    {
+      "id": 1,
+      "name": "Board 1",
+      "tasks": [
+        {
+          "id": 1,
+          "title": "#1",
+          "details": "",
+          "completed": false,
+          "notes": []
+        }
+      ],
+      "trashedTasks": [],
+      "nextTaskNumber": 2
+    },
+    {
+      "id": 2,
+      "name": "Board 2",
+      "tasks": [],
+      "trashedTasks": [],
+      "nextTaskNumber": 1
+    }
+  ],
+  "activeBoardId": 1,
+  "zoom": 1,
+  "menuSections": {
+    "completed": false,
+    "trash": false
+  },
+  "sidebarCollapsed": false
+}

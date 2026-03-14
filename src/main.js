@@ -20,7 +20,112 @@ let isTrashSectionCollapsed = false;
 let isSidebarCollapsed = false;
 let dataFileHandle = null;
 
+const FILE_HANDLE_DB_NAME = 'tasktrack-file-handle-db';
+const FILE_HANDLE_STORE_NAME = 'handles';
+const FILE_HANDLE_KEY = 'primary';
+
 const app = document.querySelector('#app');
+
+const openFileHandleDb = () =>
+  new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      resolve(null);
+      return;
+    }
+
+    const request = window.indexedDB.open(FILE_HANDLE_DB_NAME, 1);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(FILE_HANDLE_STORE_NAME)) {
+        db.createObjectStore(FILE_HANDLE_STORE_NAME);
+      }
+    };
+
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+
+const readStoredFileHandle = async () => {
+  const db = await openFileHandleDb();
+  if (!db) {
+    return null;
+  }
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(FILE_HANDLE_STORE_NAME, 'readonly');
+    const store = transaction.objectStore(FILE_HANDLE_STORE_NAME);
+    const request = store.get(FILE_HANDLE_KEY);
+
+    request.onsuccess = () => {
+      resolve(request.result ?? null);
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+};
+
+const storeFileHandle = async (handle) => {
+  const db = await openFileHandleDb();
+  if (!db) {
+    return;
+  }
+
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(FILE_HANDLE_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(FILE_HANDLE_STORE_NAME);
+    const request = store.put(handle, FILE_HANDLE_KEY);
+
+    request.onsuccess = () => {
+      resolve();
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+};
+
+const clearStoredFileHandle = async () => {
+  const db = await openFileHandleDb();
+  if (!db) {
+    return;
+  }
+
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(FILE_HANDLE_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(FILE_HANDLE_STORE_NAME);
+    const request = store.delete(FILE_HANDLE_KEY);
+
+    request.onsuccess = () => {
+      resolve();
+    };
+
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+};
+
+const ensureFilePermission = async (handle, write = true) => {
+  if (!handle?.queryPermission || !handle.requestPermission) {
+    return false;
+  }
+
+  const options = write ? { mode: 'readwrite' } : { mode: 'read' };
+  if ((await handle.queryPermission(options)) === 'granted') {
+    return true;
+  }
+
+  return (await handle.requestPermission(options)) === 'granted';
+};
 
 const createTask = (id) => ({
   id,
@@ -223,6 +328,41 @@ const restoreStateFromFile = (state) => {
   syncTasksFromActiveBoard();
 };
 
+const restoreConnectedDataFile = async () => {
+  if (!window.showOpenFilePicker) {
+    return false;
+  }
+
+  try {
+    const storedHandle = await readStoredFileHandle();
+    if (!storedHandle) {
+      return false;
+    }
+
+    const hasPermission = await ensureFilePermission(storedHandle, true);
+    if (!hasPermission) {
+      return false;
+    }
+
+    const file = await storedHandle.getFile();
+    const text = await file.text();
+
+    dataFileHandle = storedHandle;
+    if (text.trim()) {
+      restoreStateFromFile(JSON.parse(text));
+    } else {
+      loadDefaultState();
+    }
+
+    return true;
+  } catch (error) {
+    await clearStoredFileHandle().catch(() => {
+      // ignore IndexedDB cleanup failures
+    });
+    return false;
+  }
+};
+
 const connectDataFile = async () => {
   if (!window.showOpenFilePicker) {
     window.alert('File storage needs a Chromium-based browser and localhost/https context.');
@@ -242,7 +382,14 @@ const connectDataFile = async () => {
       ],
     });
 
+    const hasPermission = await ensureFilePermission(handle, true);
+    if (!hasPermission) {
+      return;
+    }
+
     dataFileHandle = handle;
+    await storeFileHandle(dataFileHandle);
+
     const file = await dataFileHandle.getFile();
     const text = await file.text();
 
@@ -1003,8 +1150,13 @@ const render = () => {
   applyZoom({ showIndicator: false });
 };
 
-loadBoards();
-loadZoom();
-loadMenuSections();
-loadSidebarState();
-render();
+const start = async () => {
+  loadBoards();
+  loadZoom();
+  loadMenuSections();
+  loadSidebarState();
+  await restoreConnectedDataFile();
+  render();
+};
+
+void start();

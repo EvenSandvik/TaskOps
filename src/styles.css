@@ -159,7 +159,7 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 4px;
   align-items: center;
-  padding: 4px 0;
+  padding: 4px 8px 4px 0;
   border-bottom: 1px solid #eef2f7;
 }
 
@@ -816,7 +816,7 @@ button {
 
 .trash-zone {
   position: fixed;
-  right: 40px;
+  right: 56px;
   bottom: 28px;
   width: 56px;
   height: 40px;
@@ -888,7 +888,7 @@ body.is-dragging-task .trash-zone {
   }
 
   .trash-zone {
-    right: 30px;
+    right: 40px;
     bottom: 20px;
   }
 }

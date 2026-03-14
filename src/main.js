@@ -7,6 +7,9 @@ const KEYBOARD_ZOOM_STEP = 0.05;
 const WHEEL_ZOOM_SENSITIVITY = 0.0022;
 const URL_PATTERN = /(https?:\/\/[^\s<>"]+)/gi;
 const DETAILS_PLACEHOLDER = 'Write the task here...';
+const DEFAULT_TASK_WIDTH = 420;
+const MIN_TASK_WIDTH = 300;
+const MAX_TASK_WIDTH = 920;
 const tasks = [];
 const boards = [];
 let activeBoardId = null;
@@ -134,8 +137,18 @@ const createTask = (id) => ({
   title: `#${id}`,
   details: '',
   completed: false,
+  width: DEFAULT_TASK_WIDTH,
   notes: [],
 });
+
+const clampTaskWidth = (value) => {
+  const parsedValue = Number(value);
+  if (!Number.isFinite(parsedValue)) {
+    return DEFAULT_TASK_WIDTH;
+  }
+
+  return Math.min(MAX_TASK_WIDTH, Math.max(MIN_TASK_WIDTH, parsedValue));
+};
 
 const createBoard = (id, name, boardTasks = [], trashedTasks = [], nextTaskNumber = 1) => ({
   id,
@@ -230,6 +243,7 @@ const normalizeTasks = (rawTasks) => {
     title: typeof task.title === 'string' && task.title.trim() ? task.title : `#${index + 1}`,
     details: typeof task.details === 'string' ? task.details : '',
     completed: Boolean(task.completed),
+    width: clampTaskWidth(task.width),
     notes: Array.isArray(task.notes)
       ? task.notes
           .map((note) => ({
@@ -699,6 +713,18 @@ const updateTask = (id, key, value) => {
   saveTasks();
 };
 
+const setTaskWidth = (id, nextWidth, { persist = false } = {}) => {
+  const task = tasks.find((item) => item.id === id);
+  if (!task) {
+    return;
+  }
+
+  task.width = clampTaskWidth(nextWidth);
+  if (persist) {
+    saveTasks();
+  }
+};
+
 const deleteTask = (id) => {
   const taskIndex = tasks.findIndex((item) => item.id === id);
   if (taskIndex === -1) {
@@ -762,7 +788,7 @@ const taskCard = (task) => {
   const timelineHtml = getTimelineHtml(task.notes, task.completed);
 
   return `
-  <section class="task-column" data-task-column data-task-id="${task.id}">
+  <section class="task-column" data-task-column data-task-id="${task.id}" style="--task-width: ${clampTaskWidth(task.width)}px;">
     <article class="task-card ${task.completed ? 'is-completed' : ''}" data-task-card data-task-id="${task.id}">
       <div class="task-card-header">
         <button
@@ -806,6 +832,14 @@ const taskCard = (task) => {
       <div class="task-links-preview" data-task-links-preview data-task-id="${task.id}">
         ${getDetailsPreviewHtml(task.details)}
       </div>
+      <button
+        class="task-resize-handle"
+        type="button"
+        aria-label="Resize task ${task.id}"
+        title="Drag to resize"
+        data-resize-task
+        data-task-id="${task.id}"
+      ></button>
     </article>
     <section class="task-timeline">
       <ul class="timeline-list ${timelineHtml.trim() ? '' : 'is-empty'}" data-timeline-list>
@@ -1062,6 +1096,54 @@ const render = () => {
     if (droppedTaskId) {
       deleteTask(droppedTaskId);
     }
+  });
+
+  document.querySelectorAll('[data-resize-task]').forEach((element) => {
+    element.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const handle = event.currentTarget;
+      const taskId = Number(handle.dataset.taskId);
+      const column = handle.closest('[data-task-column]');
+      const task = tasks.find((item) => item.id === taskId);
+      if (!taskId || !column || !task) {
+        return;
+      }
+
+      const pointerId = event.pointerId;
+      const startX = event.clientX;
+      const startWidth = clampTaskWidth(task.width || column.getBoundingClientRect().width);
+
+      handle.setPointerCapture?.(pointerId);
+
+      const onPointerMove = (moveEvent) => {
+        if (moveEvent.pointerId !== pointerId) {
+          return;
+        }
+
+        const delta = (moveEvent.clientX - startX) / zoom;
+        const nextWidth = clampTaskWidth(startWidth + delta);
+        setTaskWidth(taskId, nextWidth);
+        column.style.setProperty('--task-width', `${nextWidth}px`);
+      };
+
+      const stopResize = (finishEvent) => {
+        if (finishEvent.pointerId !== pointerId) {
+          return;
+        }
+
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', stopResize);
+        window.removeEventListener('pointercancel', stopResize);
+        handle.releasePointerCapture?.(pointerId);
+        setTaskWidth(taskId, task.width, { persist: true });
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', stopResize);
+      window.addEventListener('pointercancel', stopResize);
+    });
   });
 
   document.querySelectorAll('[data-task-input="title"]').forEach((element) => {

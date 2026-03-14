@@ -5,22 +5,11 @@
       "name": "Board 1",
       "tasks": [
         {
-          "id": 1,
-          "title": "test",
-          "details": "",
-          "completed": false,
-          "notes": [
-            {
-              "text": "test",
-              "createdAt": 1773516862411
-            }
-          ]
-        },
-        {
           "id": 2,
           "title": "test 2",
           "details": "",
           "completed": true,
+          "width": 500.0031424383417,
           "notes": [
             {
               "text": "test 2",
@@ -29,10 +18,24 @@
           ]
         },
         {
+          "id": 1,
+          "title": "test",
+          "details": "",
+          "completed": false,
+          "width": 748.7937943652475,
+          "notes": [
+            {
+              "text": "test",
+              "createdAt": 1773516862411
+            }
+          ]
+        },
+        {
           "id": 3,
           "title": "#3",
           "details": "",
-          "completed": false,
+          "completed": true,
+          "width": 562.6994060518043,
           "notes": []
         }
       ],
@@ -48,7 +51,7 @@
     }
   ],
   "activeBoardId": 1,
-  "zoom": 0.6246467397183179,
+  "zoom": 0.47174311675429376,
   "menuSections": {
     "completed": false,
     "trash": false

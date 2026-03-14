@@ -393,7 +393,7 @@ button {
   --zoom: 1;
   display: inline-grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(340px, 40vw);
+  grid-auto-columns: max-content;
   align-items: start;
   gap: 18px;
   min-height: calc(100vh - 112px);
@@ -403,7 +403,9 @@ button {
 }
 
 .task-column {
-  width: 100%;
+  width: var(--task-width, 420px);
+  min-width: 300px;
+  max-width: 920px;
   min-height: 0;
   display: grid;
   grid-template-rows: auto auto;
@@ -419,6 +421,7 @@ button {
 .task-card {
   width: 100%;
   min-height: 0;
+  position: relative;
   border-radius: 24px;
   background: #ffffff;
   border: 1px solid #e4e4e7;
@@ -439,6 +442,32 @@ button {
 .task-card-drag-preview {
   opacity: 0.96;
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.16);
+}
+
+.task-resize-handle {
+  position: absolute;
+  top: 50%;
+  right: -9px;
+  width: 14px;
+  height: 88px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 999px;
+  background: #e5e7eb;
+  cursor: ew-resize;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 140ms ease, background 140ms ease;
+}
+
+.task-column:hover .task-resize-handle,
+.task-resize-handle:focus-visible {
+  opacity: 1;
+}
+
+.task-resize-handle:hover,
+.task-resize-handle:active {
+  background: #cbd5e1;
 }
 
 .task-card-header {

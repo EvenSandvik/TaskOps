@@ -15,6 +15,8 @@ let zoomIndicatorTimer;
 let draggedTaskId = null;
 let draggedTaskElement = null;
 let dragPreviewElement = null;
+let didHandleDragDrop = false;
+let didPreviewReorder = false;
 let isCompletedSectionCollapsed = false;
 let isTrashSectionCollapsed = false;
 let isSidebarCollapsed = false;
@@ -583,6 +585,43 @@ const removeDragPreview = () => {
   dragPreviewElement = null;
 };
 
+const getTaskColumns = () => Array.from(document.querySelectorAll('[data-task-column]'));
+
+const previewTaskReorder = (fromTaskId, overTaskId) => {
+  if (!fromTaskId || !overTaskId || fromTaskId === overTaskId) {
+    return;
+  }
+
+  const boardElement = document.querySelector('[data-board]');
+  if (!boardElement) {
+    return;
+  }
+
+  const columns = getTaskColumns();
+  const fromColumn = columns.find((column) => Number(column.dataset.taskId) === fromTaskId);
+  const overColumn = columns.find((column) => Number(column.dataset.taskId) === overTaskId);
+  if (!fromColumn || !overColumn || fromColumn === overColumn) {
+    return;
+  }
+
+  const fromIndex = columns.indexOf(fromColumn);
+  const overIndex = columns.indexOf(overColumn);
+  if (fromIndex === -1 || overIndex === -1 || fromIndex === overIndex) {
+    return;
+  }
+
+  if (fromIndex < overIndex) {
+    boardElement.insertBefore(fromColumn, overColumn.nextSibling);
+  } else {
+    boardElement.insertBefore(fromColumn, overColumn);
+  }
+
+  didPreviewReorder = true;
+};
+
+const getPreviewedIndexForTask = (taskId) =>
+  getTaskColumns().findIndex((column) => Number(column.dataset.taskId) === taskId);
+
 const createDragPreview = (taskElement) => {
   removeDragPreview();
 
@@ -610,6 +649,11 @@ const clearDragState = () => {
   draggedTaskElement = null;
   removeDragPreview();
   setDraggingState(false);
+  didHandleDragDrop = false;
+  didPreviewReorder = false;
+  document.querySelectorAll('[data-task-column].is-drop-target').forEach((column) => {
+    column.classList.remove('is-drop-target');
+  });
   document.querySelector('[data-trash-zone]')?.classList.remove('is-over');
 };
 
@@ -921,6 +965,8 @@ const render = () => {
       const target = event.currentTarget;
       const id = Number(target.dataset.taskId);
       const taskElement = target.closest('[data-task-card]');
+      didHandleDragDrop = false;
+      didPreviewReorder = false;
       draggedTaskId = id;
       draggedTaskElement = taskElement;
       draggedTaskElement?.classList.add('is-dragging-source');
@@ -936,6 +982,12 @@ const render = () => {
     });
 
     element.addEventListener('dragend', () => {
+      if (!didHandleDragDrop && didPreviewReorder) {
+        clearDragState();
+        render();
+        return;
+      }
+
       clearDragState();
     });
   });
@@ -947,7 +999,16 @@ const render = () => {
       }
 
       event.preventDefault();
+      const overTaskId = Number(element.dataset.taskId);
+      previewTaskReorder(draggedTaskId, overTaskId);
+
+      document.querySelectorAll('[data-task-column].is-drop-target').forEach((column) => {
+        if (column !== element) {
+          column.classList.remove('is-drop-target');
+        }
+      });
       element.classList.add('is-drop-target');
+
       if (event.dataTransfer) {
         event.dataTransfer.dropEffect = 'move';
       }
@@ -959,17 +1020,20 @@ const render = () => {
 
     element.addEventListener('drop', (event) => {
       event.preventDefault();
-      const toTaskId = Number(element.dataset.taskId);
       element.classList.remove('is-drop-target');
 
-      if (!draggedTaskId || !toTaskId || draggedTaskId === toTaskId) {
+      if (!draggedTaskId) {
         return;
       }
 
       const fromTaskId = draggedTaskId;
-      const toIndex = tasks.findIndex((task) => task.id === toTaskId);
+      const toIndex = getPreviewedIndexForTask(fromTaskId);
+      didHandleDragDrop = true;
       clearDragState();
-      moveTaskToIndex(fromTaskId, toIndex);
+
+      if (toIndex >= 0) {
+        moveTaskToIndex(fromTaskId, toIndex);
+      }
     });
   });
 
@@ -993,6 +1057,7 @@ const render = () => {
   trashZone?.addEventListener('drop', (event) => {
     event.preventDefault();
     const droppedTaskId = draggedTaskId ?? Number(event.dataTransfer?.getData('text/plain'));
+    didHandleDragDrop = true;
     clearDragState();
     if (droppedTaskId) {
       deleteTask(droppedTaskId);

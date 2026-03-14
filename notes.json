@@ -27,10 +27,17 @@
               "createdAt": 1773516875445
             }
           ]
+        },
+        {
+          "id": 3,
+          "title": "#3",
+          "details": "",
+          "completed": false,
+          "notes": []
         }
       ],
       "trashedTasks": [],
-      "nextTaskNumber": 3
+      "nextTaskNumber": 4
     },
     {
       "id": 2,
@@ -41,7 +48,7 @@
     }
   ],
   "activeBoardId": 1,
-  "zoom": 0.8579918840855358,
+  "zoom": 0.6246467397183179,
   "menuSections": {
     "completed": false,
     "trash": false

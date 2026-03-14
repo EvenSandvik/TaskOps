@@ -2,14 +2,14 @@
   "boards": [
     {
       "id": 1,
-      "name": "Board 1",
+      "name": "Loggansvar",
       "tasks": [
         {
           "id": 2,
           "title": "test 2",
           "details": "",
           "completed": true,
-          "width": 500.0031424383417,
+          "width": 540.5024145661291,
           "notes": [
             {
               "text": "test 2",
@@ -20,9 +20,9 @@
         {
           "id": 1,
           "title": "test",
-          "details": "",
+          "details": "B\nB\nB\nB\n\nB\nB\nB\nB\nB\nB\nb\nB\nB\nB\nB\n\nB\nB\n",
           "completed": false,
-          "width": 748.7937943652475,
+          "width": 300,
           "notes": [
             {
               "text": "test",
@@ -35,23 +35,36 @@
           "title": "#3",
           "details": "",
           "completed": true,
-          "width": 562.6994060518043,
+          "width": 327.51286750639645,
+          "notes": [
+            {
+              "text": "test",
+              "createdAt": 1773517268286
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "#4",
+          "details": "A\nA\nA\n\nA\nA\nA\n\nA\nA\nAA\n",
+          "completed": true,
+          "width": 760.3499484961735,
           "notes": []
         }
       ],
       "trashedTasks": [],
-      "nextTaskNumber": 4
+      "nextTaskNumber": 5
     },
     {
       "id": 2,
-      "name": "Board 2",
+      "name": "Forvaltning",
       "tasks": [],
       "trashedTasks": [],
       "nextTaskNumber": 1
     }
   ],
   "activeBoardId": 1,
-  "zoom": 0.47174311675429376,
+  "zoom": 0.5678500407859686,
   "menuSections": {
     "completed": false,
     "trash": false

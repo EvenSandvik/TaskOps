@@ -23,6 +23,7 @@ let didPreviewReorder = false;
 let isCompletedSectionCollapsed = false;
 let isTrashSectionCollapsed = false;
 let isSidebarCollapsed = false;
+let editingBoardId = null;
 let dataFileHandle = null;
 
 const FILE_HANDLE_DB_NAME = 'tasktrack-file-handle-db';
@@ -475,13 +476,44 @@ const renameBoard = (id) => {
     return;
   }
 
-  const nextName = window.prompt('Gi board et navn', board.name)?.trim();
-  if (!nextName) {
+  editingBoardId = id;
+  render();
+};
+
+const commitBoardRename = (id, value) => {
+  const board = boards.find((item) => item.id === id);
+  if (!board) {
+    editingBoardId = null;
+    render();
     return;
   }
 
-  board.name = nextName;
-  saveBoards();
+  const nextName = value.trim();
+  if (nextName) {
+    board.name = nextName;
+    saveBoards();
+  }
+
+  editingBoardId = null;
+  render();
+};
+
+const cancelBoardRename = () => {
+  if (editingBoardId === null) {
+    return;
+  }
+
+  editingBoardId = null;
+  render();
+};
+
+const startBoardRename = (id) => {
+  const board = boards.find((item) => item.id === id);
+  if (!board) {
+    return;
+  }
+
+  editingBoardId = id;
   render();
 };
 
@@ -870,7 +902,9 @@ const taskMenuPreview = (task) => `
 
 const boardMenuItem = (board) => `
   <li class="board-menu-item ${board.id === activeBoardId ? 'is-active' : ''}">
-    <button class="board-menu-switch" type="button" data-switch-board data-board-id="${board.id}">${escapeHtml(board.name)}</button>
+    ${editingBoardId === board.id
+    ? `<input class="board-menu-edit-input" type="text" value="${escapeHtml(board.name)}" aria-label="Edit board name" data-edit-board-name data-board-id="${board.id}" />`
+    : `<button class="board-menu-switch" type="button" data-switch-board data-board-id="${board.id}">${escapeHtml(board.name)}</button>`}
     <button class="board-menu-icon" type="button" aria-label="Gi nytt navn" data-rename-board data-board-id="${board.id}">
       <i class="bi bi-pencil" aria-hidden="true"></i>
     </button>
@@ -960,12 +994,47 @@ const render = () => {
       const id = Number(event.currentTarget.dataset.boardId);
       switchBoard(id);
     });
+
+    element.addEventListener('dblclick', (event) => {
+      event.preventDefault();
+      const id = Number(event.currentTarget.dataset.boardId);
+      startBoardRename(id);
+    });
   });
 
   document.querySelectorAll('[data-rename-board]').forEach((element) => {
     element.addEventListener('click', (event) => {
       const id = Number(event.currentTarget.dataset.boardId);
       renameBoard(id);
+    });
+  });
+
+  document.querySelectorAll('[data-edit-board-name]').forEach((element) => {
+    if (Number(element.dataset.boardId) === editingBoardId) {
+      element.focus();
+      element.select();
+    }
+
+    element.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+
+    element.addEventListener('keydown', (event) => {
+      const id = Number(event.currentTarget.dataset.boardId);
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitBoardRename(id, event.currentTarget.value);
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelBoardRename();
+      }
+    });
+
+    element.addEventListener('blur', (event) => {
+      const id = Number(event.currentTarget.dataset.boardId);
+      commitBoardRename(id, event.currentTarget.value);
     });
   });
 

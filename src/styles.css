@@ -164,7 +164,18 @@ button {
 }
 
 .board-menu-item.is-active {
-  background: transparent;
+  background: #f1f5f9;
+  border-radius: 10px;
+  border-bottom-color: transparent;
+}
+
+.board-menu-item.is-active .board-menu-switch {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.board-menu-item.is-active .board-menu-icon {
+  color: #6b7280;
 }
 
 .board-menu-switch {
@@ -737,8 +748,8 @@ button {
 
 .trash-zone {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: 32px;
+  bottom: 28px;
   width: 56px;
   height: 40px;
   display: grid;
@@ -809,7 +820,7 @@ body.is-dragging-task .trash-zone {
   }
 
   .trash-zone {
-    right: 16px;
-    bottom: 16px;
+    right: 24px;
+    bottom: 20px;
   }
 }

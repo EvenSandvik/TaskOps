@@ -905,9 +905,6 @@ const boardMenuItem = (board) => `
     ${editingBoardId === board.id
     ? `<input class="board-menu-edit-input" type="text" value="${escapeHtml(board.name)}" aria-label="Edit board name" data-edit-board-name data-board-id="${board.id}" />`
     : `<button class="board-menu-switch" type="button" data-switch-board data-board-id="${board.id}">${escapeHtml(board.name)}</button>`}
-    <button class="board-menu-icon" type="button" aria-label="Gi nytt navn" data-rename-board data-board-id="${board.id}">
-      <i class="bi bi-pencil" aria-hidden="true"></i>
-    </button>
     <button class="board-menu-icon" type="button" aria-label="Slett board" data-delete-board data-board-id="${board.id}" ${boards.length <= 1 ? 'disabled' : ''}>
       <i class="bi bi-trash3" aria-hidden="true"></i>
     </button>
@@ -999,13 +996,6 @@ const render = () => {
       event.preventDefault();
       const id = Number(event.currentTarget.dataset.boardId);
       startBoardRename(id);
-    });
-  });
-
-  document.querySelectorAll('[data-rename-board]').forEach((element) => {
-    element.addEventListener('click', (event) => {
-      const id = Number(event.currentTarget.dataset.boardId);
-      renameBoard(id);
     });
   });
 

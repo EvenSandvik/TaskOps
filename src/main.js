@@ -1723,11 +1723,17 @@ const render = () => {
       if (event.key !== 'Enter') {
         return;
       }
-
-      event.preventDefault();
-      const target = event.currentTarget;
-      const taskId = Number(target.dataset.taskId);
-      addTaskNote(taskId, target.value);
+        event.preventDefault();
+        const target = event.currentTarget;
+        const taskId = Number(target.dataset.taskId);
+        const noteText = target.value;
+        if (noteText.trim()) {
+          addTaskNote(taskId, noteText);
+          // Close compose box and clear input
+          const column = target.closest('[data-task-column]');
+          column?.classList.remove('is-adding-note');
+          target.value = '';
+        }
     });
   });
 

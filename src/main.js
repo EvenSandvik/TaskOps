@@ -44,6 +44,7 @@ let saveIndicatorTimer = null;
 let isSaveIndicatorVisible = false;
 let dataFileHandle = null;
 let desktopStorageMeta = null;
+let skipNextFocusRestore = false;
 
 const FILE_HANDLE_DB_NAME = 'tasktrack-file-handle-db';
 const FILE_HANDLE_STORE_NAME = 'handles';
@@ -240,7 +241,7 @@ const formatNoteTime = (time) => {
   });
 };
 
-const getTimelineHtml = (notes, isCompleted = false) => {
+const getTimelineHtml = (taskId, notes, isCompleted = false) => {
   const notesHtml = notes
     .toSorted((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
     .map(
@@ -248,7 +249,20 @@ const getTimelineHtml = (notes, isCompleted = false) => {
         <li class="timeline-item">
           <div class="timeline-content">
             <time class="timeline-time" datetime="${new Date(note.createdAt).toISOString()}">${escapeHtml(formatNoteTime(note.createdAt))}</time>
-            <p class="timeline-note">${linkifyText(note.text)}</p>
+            <div class="timeline-note-row">
+              <p class="timeline-note">${linkifyText(note.text)}</p>
+              <button
+                class="timeline-note-delete"
+                type="button"
+                aria-label="Delete status note"
+                title="Delete status note"
+                data-delete-note
+                data-task-id="${taskId}"
+                data-note-id="${note.id}"
+              >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
+            </div>
           </div>
         </li>
       `,
@@ -282,10 +296,14 @@ const normalizeTasks = (rawTasks) => {
     width: clampTaskWidth(task.width),
     notes: Array.isArray(task.notes)
       ? task.notes
-          .map((note) => ({
-            text: typeof note?.text === 'string' ? note.text : '',
-            createdAt: Number(note?.createdAt) || Date.now(),
-          }))
+          .map((note, noteIndex) => {
+            const createdAt = Number(note?.createdAt) || Date.now();
+            return {
+              id: Number(note?.id) || (createdAt * 1000) + noteIndex,
+              text: typeof note?.text === 'string' ? note.text : '',
+              createdAt,
+            };
+          })
           .filter((note) => note.text.trim())
       : [],
   }));
@@ -322,7 +340,11 @@ const buildPersistedState = () => ({
 
 const persistStateToFile = async () => {
   if (isDesktopApp) {
-    await desktopApi.saveState(buildPersistedState());
+    const saveResult = await desktopApi.saveState(JSON.stringify(buildPersistedState()));
+    desktopStorageMeta = {
+      ...(desktopStorageMeta ?? {}),
+      ...(saveResult ?? {}),
+    };
     return true;
   }
 
@@ -408,8 +430,17 @@ const restoreConnectedDataFile = async () => {
       dataFileHandle = { kind: 'desktop' };
       desktopStorageMeta = result;
 
+      if (result?.encryptionError) {
+        window.alert('Could not decrypt the local TaskTrack data file. This can happen if the file was copied from another OS account. A fresh local file will be created.');
+        loadDefaultState();
+        await persistStateToFile();
+        return true;
+      }
+
       if (result?.state) {
         restoreStateFromFile(result.state);
+      } else if (typeof result?.rawState === 'string' && result.rawState.trim()) {
+        restoreStateFromFile(JSON.parse(result.rawState));
       } else {
         loadDefaultState();
         await persistStateToFile();
@@ -520,6 +551,46 @@ const saveTasks = ({ showSaved = false } = {}) => {
 
 const loadBoards = () => {
   loadDefaultState();
+};
+
+const getDesktopPrivacyStatus = () => {
+  if (!isDesktopApp) {
+    return {
+      label: '',
+      title: '',
+      className: '',
+    };
+  }
+
+  if (desktopStorageMeta?.encryptionError) {
+    return {
+      label: 'Encryption error',
+      title: 'Desktop data could not be decrypted on this OS account.',
+      className: 'is-warning',
+    };
+  }
+
+  if (desktopStorageMeta?.isEncrypted) {
+    return {
+      label: 'Encrypted at rest',
+      title: 'Local desktop data is encrypted using OS secure storage.',
+      className: 'is-encrypted',
+    };
+  }
+
+  if (desktopStorageMeta?.encryptionAvailable === false) {
+    return {
+      label: 'Encryption unavailable',
+      title: 'OS secure storage is unavailable, so local data is not encrypted at rest.',
+      className: 'is-unencrypted',
+    };
+  }
+
+  return {
+    label: 'Checking encryption...',
+    title: 'Encryption status will appear after the first desktop state load.',
+    className: '',
+  };
 };
 
 const addBoard = () => {
@@ -879,11 +950,29 @@ const addTaskNote = (taskId, text) => {
     return;
   }
 
+  const noteId = (Date.now() * 1000) + task.notes.length;
   task.notes.push({
+    id: noteId,
     text: noteText,
     createdAt: Date.now(),
   });
 
+  saveTasks({ showSaved: true });
+  render();
+};
+
+const deleteTaskNote = (taskId, noteId) => {
+  const task = tasks.find((item) => item.id === taskId);
+  if (!task || !Array.isArray(task.notes)) {
+    return;
+  }
+
+  const noteIndex = task.notes.findIndex((note) => Number(note.id) === noteId);
+  if (noteIndex === -1) {
+    return;
+  }
+
+  task.notes.splice(noteIndex, 1);
   saveTasks({ showSaved: true });
   render();
 };
@@ -985,7 +1074,7 @@ const moveBoardToIndex = (boardId, toIndex) => {
 };
 
 const taskCard = (task) => {
-  const timelineHtml = getTimelineHtml(task.notes, task.completed);
+  const timelineHtml = getTimelineHtml(task.id, task.notes, task.completed);
 
   return `
   <section class="task-column" data-task-column data-task-id="${task.id}" style="--task-width: ${clampTaskWidth(task.width)}px;">
@@ -1153,7 +1242,9 @@ const restoreFocusState = (focusState) => {
 };
 
 const render = () => {
-  const focusState = captureFocusState();
+  const focusState = skipNextFocusRestore ? null : captureFocusState();
+  skipNextFocusRestore = false;
+  const desktopPrivacyStatus = getDesktopPrivacyStatus();
 
   const activeBoard = getActiveBoard();
   const completedTasks = tasks.filter((task) => task.completed);
@@ -1179,7 +1270,8 @@ const render = () => {
             <i class="bi ${isSidebarCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'}" aria-hidden="true"></i>
           </button>
           ${isDesktopApp
-    ? `<div class="left-menu-file-badge" title="${escapeHtml(desktopStorageMeta?.path ?? 'Desktop data file')}">${escapeHtml(desktopStorageMeta?.fileName ?? 'Desktop app')}</div>`
+        ? `<div class="left-menu-file-badge" title="${escapeHtml(desktopStorageMeta?.path ?? 'Desktop data file')}">${escapeHtml(desktopStorageMeta?.fileName ?? 'Desktop app')}</div>
+            <div class="left-menu-privacy-badge ${desktopPrivacyStatus.className}" title="${escapeHtml(desktopPrivacyStatus.title)}">${escapeHtml(desktopPrivacyStatus.label)}</div>`
     : `<button class="left-menu-file-button" type="button" data-connect-file>${dataFileHandle ? 'File connected' : 'Open data file'}</button>`}
         </div>
         <div class="left-menu-head">
@@ -1232,7 +1324,7 @@ const render = () => {
 
       ${undoTrashState ? `
       <div class="undo-toast" data-undo-toast>
-        <span class="undo-toast-text">Task moved to trash</span>
+        <span class="undo-toast-text"><i class="bi bi-trash3" aria-hidden="true"></i> Task moved to trash</span>
         <button class="undo-toast-btn" type="button" data-undo-trash>Undo</button>
         <button class="undo-toast-dismiss" type="button" data-dismiss-undo aria-label="Dismiss"><i class="bi bi-x" aria-hidden="true"></i></button>
       </div>
@@ -1723,17 +1815,15 @@ const render = () => {
       if (event.key !== 'Enter') {
         return;
       }
-        event.preventDefault();
-        const target = event.currentTarget;
-        const taskId = Number(target.dataset.taskId);
-        const noteText = target.value;
-        if (noteText.trim()) {
-          addTaskNote(taskId, noteText);
-          // Close compose box and clear input
-          const column = target.closest('[data-task-column]');
-          column?.classList.remove('is-adding-note');
-          target.value = '';
-        }
+      event.preventDefault();
+      const target = event.currentTarget;
+      const taskId = Number(target.dataset.taskId);
+      const noteText = target.value;
+      if (noteText.trim()) {
+        // Prevent rerender from restoring note-input focus and reopening compose box.
+        skipNextFocusRestore = true;
+        addTaskNote(taskId, noteText);
+      }
     });
   });
 
@@ -1750,6 +1840,20 @@ const render = () => {
       }
     });
 
+  });
+
+  document.querySelectorAll('[data-delete-note]').forEach((element) => {
+    element.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const target = event.currentTarget;
+      const taskId = Number(target.dataset.taskId);
+      const noteId = Number(target.dataset.noteId);
+      if (!taskId || !noteId) {
+        return;
+      }
+
+      deleteTaskNote(taskId, noteId);
+    });
   });
 
   const viewport = document.querySelector('[data-viewport]');

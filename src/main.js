@@ -45,6 +45,12 @@ let isSaveIndicatorVisible = false;
 let dataFileHandle = null;
 let desktopStorageMeta = null;
 let skipNextFocusRestore = false;
+let desktopFiles = [];
+let desktopRecentFilePath = null;
+let desktopActiveFilePath = null;
+let isDesktopFilePickerVisible = false;
+let desktopNewFileNameDraft = '';
+let hasRegisteredGlobalClickHandlers = false;
 
 const FILE_HANDLE_DB_NAME = 'tasktrack-file-handle-db';
 const FILE_HANDLE_STORE_NAME = 'handles';
@@ -340,11 +346,19 @@ const buildPersistedState = () => ({
 
 const persistStateToFile = async () => {
   if (isDesktopApp) {
-    const saveResult = await desktopApi.saveState(JSON.stringify(buildPersistedState()));
+    const saveResult = await desktopApi.saveState({
+      filePath: desktopActiveFilePath,
+      state: buildPersistedState(),
+    });
     desktopStorageMeta = {
       ...(desktopStorageMeta ?? {}),
       ...(saveResult ?? {}),
     };
+    if (Array.isArray(saveResult?.files)) {
+      desktopFiles = saveResult.files;
+    }
+    desktopRecentFilePath = typeof saveResult?.recentFilePath === 'string' ? saveResult.recentFilePath : desktopRecentFilePath;
+    desktopActiveFilePath = saveResult?.path ?? desktopActiveFilePath;
     return true;
   }
 
@@ -366,6 +380,75 @@ const requestPersist = ({ showSaved = false } = {}) => {
   }).catch(() => {
     // ignore write failures silently to avoid breaking interaction flow
   });
+};
+
+const getDesktopFileDisplayTime = (file) => {
+  const value = Number(file?.lastUsedAt) || Number(file?.lastSavedAt) || 0;
+  if (!value) {
+    return 'Never used';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown';
+  }
+
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
+
+const refreshDesktopFiles = async () => {
+  if (!isDesktopApp) {
+    return;
+  }
+
+  const result = await desktopApi.listFiles();
+  desktopFiles = Array.isArray(result?.files) ? result.files : [];
+  desktopRecentFilePath = typeof result?.recentFilePath === 'string' ? result.recentFilePath : null;
+};
+
+const openDesktopFile = async (filePath) => {
+  if (!isDesktopApp) {
+    return;
+  }
+
+  const result = await desktopApi.loadState(filePath);
+  dataFileHandle = { kind: 'desktop' };
+  desktopStorageMeta = result;
+  desktopActiveFilePath = result?.path ?? filePath ?? null;
+
+  if (Array.isArray(result?.files)) {
+    desktopFiles = result.files;
+  }
+  desktopRecentFilePath = typeof result?.recentFilePath === 'string' ? result.recentFilePath : desktopRecentFilePath;
+
+  if (result?.state && typeof result.state === 'object') {
+    restoreStateFromFile(result.state);
+  } else {
+    loadDefaultState();
+    await persistStateToFile();
+  }
+
+  isDesktopFilePickerVisible = false;
+  render();
+};
+
+const createAndOpenDesktopFile = async (fileName = '') => {
+  if (!isDesktopApp) {
+    return;
+  }
+
+  const created = await desktopApi.createFile(fileName);
+  if (Array.isArray(created?.files)) {
+    desktopFiles = created.files;
+  }
+  desktopRecentFilePath = typeof created?.recentFilePath === 'string' ? created.recentFilePath : desktopRecentFilePath;
+  desktopNewFileNameDraft = '';
+  await openDesktopFile(created?.path);
 };
 
 const loadDefaultState = () => {
@@ -493,7 +576,9 @@ const restoreConnectedDataFile = async () => {
 
 const connectDataFile = async () => {
   if (isDesktopApp) {
-    window.alert(`TaskTrack Desktop saves automatically to ${desktopStorageMeta?.path ?? 'its desktop data file'}.`);
+    await refreshDesktopFiles();
+    isDesktopFilePickerVisible = true;
+    render();
     return;
   }
 
@@ -1245,10 +1330,115 @@ const restoreFocusState = (focusState) => {
   }
 };
 
+const registerGlobalClickHandlers = () => {
+  if (hasRegisteredGlobalClickHandlers) {
+    return;
+  }
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const sidebarToggle = event.target.closest('[data-toggle-sidebar]');
+    if (sidebarToggle && app.contains(sidebarToggle)) {
+      event.preventDefault();
+      toggleSidebar();
+      return;
+    }
+
+    if (event.target.closest('[data-note-composer], [data-open-note-composer]')) {
+      return;
+    }
+
+    document.querySelectorAll('.task-column.is-adding-note').forEach((columnElement) => {
+      columnElement.classList.remove('is-adding-note');
+      const draft = columnElement.querySelector('[data-note-draft]');
+      if (draft instanceof HTMLInputElement) {
+        draft.value = '';
+      }
+    });
+  });
+
+  hasRegisteredGlobalClickHandlers = true;
+};
+
 const render = () => {
   const focusState = skipNextFocusRestore ? null : captureFocusState();
   skipNextFocusRestore = false;
   const desktopPrivacyStatus = getDesktopPrivacyStatus();
+
+  if (isDesktopApp && isDesktopFilePickerVisible) {
+    const fileItemsHtml = desktopFiles.length
+      ? desktopFiles
+          .map((file) => {
+            const isRecent = file.path === desktopRecentFilePath;
+            return `
+              <li class="desktop-file-picker-item">
+                <button class="desktop-file-picker-open" type="button" data-open-desktop-file data-file-path="${escapeHtml(file.path)}">
+                  <span class="desktop-file-picker-name">${escapeHtml(file.fileName ?? 'Untitled')}</span>
+                  <span class="desktop-file-picker-meta">${isRecent ? 'Recent · ' : ''}${escapeHtml(getDesktopFileDisplayTime(file))}</span>
+                </button>
+              </li>
+            `;
+          })
+          .join('')
+      : '<li class="desktop-file-picker-empty">No files yet. Create your first TaskTrack file.</li>';
+
+    app.innerHTML = `
+      <main class="desktop-file-picker-shell">
+        <header class="desktop-file-picker-header">
+          <h1 class="desktop-file-picker-title">Choose a TaskTrack file</h1>
+          <p class="desktop-file-picker-subtitle">Open a recent file or create a new one.</p>
+        </header>
+
+        <section class="desktop-file-picker-actions">
+          <input
+            class="desktop-file-picker-name-input"
+            type="text"
+            placeholder="File name"
+            value="${escapeHtml(desktopNewFileNameDraft)}"
+            aria-label="New file name"
+            data-desktop-file-name
+          />
+          <button class="desktop-file-picker-create" type="button" data-create-desktop-file>Create file</button>
+        </section>
+
+        <ul class="desktop-file-picker-list">
+          ${fileItemsHtml}
+        </ul>
+      </main>
+    `;
+
+    const desktopFileNameInput = document.querySelector('[data-desktop-file-name]');
+    if (desktopFileNameInput instanceof HTMLInputElement) {
+      desktopFileNameInput.addEventListener('input', (event) => {
+        desktopNewFileNameDraft = event.currentTarget.value;
+      });
+      desktopFileNameInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          void createAndOpenDesktopFile(desktopFileNameInput.value);
+        }
+      });
+    }
+
+    document.querySelector('[data-create-desktop-file]')?.addEventListener('click', () => {
+      const fileName = desktopFileNameInput instanceof HTMLInputElement ? desktopFileNameInput.value : desktopNewFileNameDraft;
+      void createAndOpenDesktopFile(fileName);
+    });
+
+    document.querySelectorAll('[data-open-desktop-file]').forEach((element) => {
+      element.addEventListener('click', (event) => {
+        const filePath = event.currentTarget.dataset.filePath;
+        if (filePath) {
+          void openDesktopFile(filePath);
+        }
+      });
+    });
+
+    return;
+  }
 
   const activeBoard = getActiveBoard();
   const completedTasks = tasks.filter((task) => task.completed);
@@ -1275,7 +1465,8 @@ const render = () => {
           </button>
           ${isDesktopApp
         ? `<div class="left-menu-file-badge" title="${escapeHtml(desktopStorageMeta?.path ?? 'Desktop data file')}">${escapeHtml(desktopStorageMeta?.fileName ?? 'Desktop app')}</div>
-            <div class="left-menu-privacy-badge ${desktopPrivacyStatus.className}" title="${escapeHtml(desktopPrivacyStatus.title)}">${escapeHtml(desktopPrivacyStatus.label)}</div>`
+            <div class="left-menu-privacy-badge ${desktopPrivacyStatus.className}" title="${escapeHtml(desktopPrivacyStatus.title)}">${escapeHtml(desktopPrivacyStatus.label)}</div>
+            <button class="left-menu-file-button" type="button" data-connect-file>Files</button>`
     : `<button class="left-menu-file-button" type="button" data-connect-file>${dataFileHandle ? 'File connected' : 'Open data file'}</button>`}
         </div>
         <div class="left-menu-head">
@@ -1350,7 +1541,6 @@ const render = () => {
     </main>
   `;
 
-  document.querySelector('[data-toggle-sidebar]')?.addEventListener('click', toggleSidebar);
   document.querySelector('[data-connect-file]')?.addEventListener('click', () => {
     void connectDataFile();
   });
@@ -1831,21 +2021,6 @@ const render = () => {
     });
   });
 
-  document.addEventListener('click', (event) => {
-    if (event.target instanceof Element && event.target.closest('[data-note-composer], [data-open-note-composer]')) {
-      return;
-    }
-
-    document.querySelectorAll('.task-column.is-adding-note').forEach((columnElement) => {
-      columnElement.classList.remove('is-adding-note');
-      const draft = columnElement.querySelector('[data-note-draft]');
-      if (draft instanceof HTMLInputElement) {
-        draft.value = '';
-      }
-    });
-
-  });
-
   document.querySelectorAll('[data-delete-note]').forEach((element) => {
     element.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -1896,10 +2071,20 @@ const render = () => {
 };
 
 const start = async () => {
+  registerGlobalClickHandlers();
+
   loadBoards();
   loadZoom();
   loadMenuSections();
   loadSidebarState();
+
+  if (isDesktopApp) {
+    await refreshDesktopFiles();
+    isDesktopFilePickerVisible = true;
+    render();
+    return;
+  }
+
   await restoreConnectedDataFile();
   render();
 };

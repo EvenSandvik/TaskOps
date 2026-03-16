@@ -142,6 +142,7 @@ button {
 .left-menu.is-collapsed .left-menu-title,
 .left-menu.is-collapsed .left-menu-file-button,
 .left-menu.is-collapsed .left-menu-file-badge,
+.left-menu.is-collapsed .left-menu-privacy-badge,
 .left-menu.is-collapsed .left-menu-add-board,
 .left-menu.is-collapsed .board-menu-list,
 .left-menu.is-collapsed .menu-section {
@@ -1087,6 +1088,116 @@ body.is-dragging-task .trash-zone {
   background: rgba(254, 242, 242, 0.95);
   border-color: #fecaca;
   color: #b91c1c;
+}
+
+.desktop-file-picker-shell {
+  min-height: 100vh;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 34px;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(148, 163, 184, 0.10), transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.08), transparent 38%),
+    #f8fafc;
+}
+
+.desktop-file-picker-header {
+  max-width: 980px;
+}
+
+.desktop-file-picker-title {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #0f172a;
+}
+
+.desktop-file-picker-subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.94rem;
+}
+
+.desktop-file-picker-actions {
+  width: min(980px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.desktop-file-picker-name-input {
+  height: 42px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #111827;
+  outline: none;
+}
+
+.desktop-file-picker-name-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+}
+
+.desktop-file-picker-create {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.desktop-file-picker-list {
+  margin: 0;
+  width: min(980px, 100%);
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+}
+
+.desktop-file-picker-item {
+  margin: 0;
+}
+
+.desktop-file-picker-open {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.desktop-file-picker-open:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.desktop-file-picker-name {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.desktop-file-picker-meta {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.desktop-file-picker-empty {
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
 }
 
 .trash-zone.is-over {

@@ -43,12 +43,15 @@ let draggedBoardId = null;
 let saveIndicatorTimer = null;
 let isSaveIndicatorVisible = false;
 let dataFileHandle = null;
+let desktopStorageMeta = null;
 
 const FILE_HANDLE_DB_NAME = 'tasktrack-file-handle-db';
 const FILE_HANDLE_STORE_NAME = 'handles';
 const FILE_HANDLE_KEY = 'primary';
 
 const app = document.querySelector('#app');
+const desktopApi = window.taskTrackDesktop ?? null;
+const isDesktopApp = Boolean(desktopApi?.isDesktop);
 
 const showSaveIndicator = () => {
   clearTimeout(saveIndicatorTimer);
@@ -318,6 +321,11 @@ const buildPersistedState = () => ({
 });
 
 const persistStateToFile = async () => {
+  if (isDesktopApp) {
+    await desktopApi.saveState(buildPersistedState());
+    return true;
+  }
+
   if (!dataFileHandle) {
     return false;
   }
@@ -394,6 +402,26 @@ const restoreStateFromFile = (state) => {
 };
 
 const restoreConnectedDataFile = async () => {
+  if (isDesktopApp) {
+    try {
+      const result = await desktopApi.loadState();
+      dataFileHandle = { kind: 'desktop' };
+      desktopStorageMeta = result;
+
+      if (result?.state) {
+        restoreStateFromFile(result.state);
+      } else {
+        loadDefaultState();
+        await persistStateToFile();
+      }
+
+      return true;
+    } catch (error) {
+      loadDefaultState();
+      return true;
+    }
+  }
+
   if (!window.showOpenFilePicker) {
     return false;
   }
@@ -429,8 +457,13 @@ const restoreConnectedDataFile = async () => {
 };
 
 const connectDataFile = async () => {
+  if (isDesktopApp) {
+    window.alert(`TaskTrack Desktop saves automatically to ${desktopStorageMeta?.path ?? 'its desktop data file'}.`);
+    return;
+  }
+
   if (!window.showOpenFilePicker) {
-    window.alert('File storage needs a Chromium-based browser and localhost/https context.');
+    window.alert('TaskTrack must run in a Chromium-based browser on localhost or https. If you opened index.html directly, start the app with npm run dev and use the served URL.');
     return;
   }
 
@@ -740,6 +773,9 @@ const clearDragState = () => {
   document.querySelectorAll('[data-task-column].is-drop-target').forEach((column) => {
     column.classList.remove('is-drop-target');
   });
+  document.querySelectorAll('[data-board-item].is-task-board-drop-target').forEach((item) => {
+    item.classList.remove('is-task-board-drop-target');
+  });
   document.querySelector('[data-trash-zone]')?.classList.remove('is-over');
 };
 
@@ -862,6 +898,36 @@ const moveTaskToIndex = (taskId, toIndex) => {
   const [task] = tasks.splice(fromIndex, 1);
   tasks.splice(toIndex, 0, task);
   saveTasks();
+  render();
+};
+
+const moveTaskToBoard = (taskId, targetBoardId) => {
+  const sourceBoard = getActiveBoard();
+  const targetBoard = boards.find((board) => board.id === targetBoardId);
+  if (!sourceBoard || !targetBoard || sourceBoard.id === targetBoard.id) {
+    return;
+  }
+
+  const taskIndex = tasks.findIndex((task) => task.id === taskId);
+  if (taskIndex === -1) {
+    return;
+  }
+
+  const [task] = tasks.splice(taskIndex, 1);
+
+  sourceBoard.tasks = normalizeTasks(tasks);
+
+  const nextTaskId = Number(targetBoard.nextTaskNumber) || getInitialNextTaskNumber(targetBoard.tasks, targetBoard.trashedTasks);
+  targetBoard.nextTaskNumber = nextTaskId + 1;
+  targetBoard.tasks = normalizeTasks([
+    ...(Array.isArray(targetBoard.tasks) ? targetBoard.tasks : []),
+    {
+      ...task,
+      id: nextTaskId,
+    },
+  ]);
+
+  saveBoards({ showSaved: true });
   render();
 };
 
@@ -1018,10 +1084,76 @@ const boardMenuItem = (board) => {
   `;
 };
 
+const captureFocusState = () => {
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)) {
+    return null;
+  }
+
+  if (!app.contains(activeElement)) {
+    return null;
+  }
+
+  let selector = null;
+
+  if (activeElement.hasAttribute('data-search')) {
+    selector = '[data-search]';
+  }
+
+  if (!selector && activeElement.hasAttribute('data-task-input') && activeElement.dataset.taskId) {
+    selector = `[data-task-input="${activeElement.dataset.taskInput}"][data-task-id="${activeElement.dataset.taskId}"]`;
+  }
+
+  if (!selector && activeElement.hasAttribute('data-note-draft') && activeElement.dataset.taskId) {
+    selector = `[data-note-draft][data-task-id="${activeElement.dataset.taskId}"]`;
+  }
+
+  if (!selector && activeElement.hasAttribute('data-edit-board-name') && activeElement.dataset.boardId) {
+    selector = `[data-edit-board-name][data-board-id="${activeElement.dataset.boardId}"]`;
+  }
+
+  if (!selector) {
+    return null;
+  }
+
+  return {
+    selector,
+    value: activeElement.value,
+    selectionStart: activeElement.selectionStart,
+    selectionEnd: activeElement.selectionEnd,
+    isDetailsInput: activeElement.dataset.taskInput === 'details',
+    isNoteDraft: activeElement.hasAttribute('data-note-draft'),
+  };
+};
+
+const restoreFocusState = (focusState) => {
+  if (!focusState) {
+    return;
+  }
+
+  const target = document.querySelector(focusState.selector);
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+    return;
+  }
+
+  if (focusState.isDetailsInput) {
+    target.closest('[data-task-card]')?.classList.add('is-editing-details');
+  }
+
+  if (focusState.isNoteDraft) {
+    target.closest('[data-task-column]')?.classList.add('is-adding-note');
+  }
+
+  target.value = focusState.value;
+  target.focus();
+
+  if (typeof focusState.selectionStart === 'number' && typeof focusState.selectionEnd === 'number') {
+    target.setSelectionRange(focusState.selectionStart, focusState.selectionEnd);
+  }
+};
+
 const render = () => {
-  const prevSearchFocused =
-    document.activeElement instanceof HTMLInputElement &&
-    document.activeElement.hasAttribute('data-search');
+  const focusState = captureFocusState();
 
   const activeBoard = getActiveBoard();
   const completedTasks = tasks.filter((task) => task.completed);
@@ -1046,7 +1178,9 @@ const render = () => {
           <button class="left-menu-collapse-button" type="button" aria-label="${isSidebarCollapsed ? 'Expand sidebar' : 'Minimize sidebar'}" data-toggle-sidebar>
             <i class="bi ${isSidebarCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'}" aria-hidden="true"></i>
           </button>
-          <button class="left-menu-file-button" type="button" data-connect-file>${dataFileHandle ? 'File connected' : 'Open data file'}</button>
+          ${isDesktopApp
+    ? `<div class="left-menu-file-badge" title="${escapeHtml(desktopStorageMeta?.path ?? 'Desktop data file')}">${escapeHtml(desktopStorageMeta?.fileName ?? 'Desktop app')}</div>`
+    : `<button class="left-menu-file-button" type="button" data-connect-file>${dataFileHandle ? 'File connected' : 'Open data file'}</button>`}
         </div>
         <div class="left-menu-head">
           <h2 class="left-menu-title">Boards</h2>
@@ -1243,6 +1377,21 @@ const render = () => {
 
   document.querySelectorAll('[data-board-item]').forEach((item) => {
     item.addEventListener('dragover', (event) => {
+      if (draggedTaskId && !draggedBoardId) {
+        event.preventDefault();
+        document.querySelectorAll('[data-board-item].is-task-board-drop-target').forEach((element) => {
+          if (element !== item) {
+            element.classList.remove('is-task-board-drop-target');
+          }
+        });
+        item.classList.add('is-task-board-drop-target');
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = 'move';
+        }
+
+        return;
+      }
+
       if (!draggedBoardId) {
         return;
       }
@@ -1281,9 +1430,22 @@ const render = () => {
 
     item.addEventListener('dragleave', () => {
       item.classList.remove('is-board-drop-target');
+      item.classList.remove('is-task-board-drop-target');
     });
 
     item.addEventListener('drop', (event) => {
+      if (draggedTaskId && !draggedBoardId) {
+        event.preventDefault();
+        item.classList.remove('is-task-board-drop-target');
+
+        const droppedTaskId = draggedTaskId;
+        const targetBoardId = Number(item.dataset.boardId);
+        didHandleDragDrop = true;
+        clearDragState();
+        moveTaskToBoard(droppedTaskId, targetBoardId);
+        return;
+      }
+
       event.preventDefault();
       item.classList.remove('is-board-drop-target');
       if (!draggedBoardId) {
@@ -1616,12 +1778,7 @@ const render = () => {
 
   applyZoom({ showIndicator: false });
 
-  if (prevSearchFocused) {
-    const searchEl = document.querySelector('[data-search]');
-    if (searchEl instanceof HTMLInputElement) {
-      searchEl.focus();
-    }
-  }
+  restoreFocusState(focusState);
 };
 
 const start = async () => {

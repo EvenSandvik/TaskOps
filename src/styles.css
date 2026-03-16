@@ -102,6 +102,19 @@ button {
   cursor: pointer;
 }
 
+.left-menu-file-badge {
+  max-width: 180px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  border-radius: 8px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .left-menu-head {
   display: flex;
   align-items: center;
@@ -128,6 +141,7 @@ button {
 
 .left-menu.is-collapsed .left-menu-title,
 .left-menu.is-collapsed .left-menu-file-button,
+.left-menu.is-collapsed .left-menu-file-badge,
 .left-menu.is-collapsed .left-menu-add-board,
 .left-menu.is-collapsed .board-menu-list,
 .left-menu.is-collapsed .menu-section {
@@ -264,6 +278,17 @@ button {
 
 .board-menu-item.is-board-drop-target .board-menu-switch {
   background: #f1f5f9;
+}
+
+.board-menu-item.is-task-board-drop-target {
+  background: #e0f2fe;
+  border-radius: 10px;
+  border-bottom-color: transparent;
+}
+
+.board-menu-item.is-task-board-drop-target .board-menu-switch {
+  color: #0c4a6e;
+  font-weight: 600;
 }
 
 .board-task-count {

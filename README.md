@@ -4,6 +4,8 @@ A lightweight local-first task board built with Vite + vanilla JavaScript.
 
 TaskTrack is designed for personal planning with horizontal task cards, board organization, timeline updates, drag-and-drop workflows, and local JSON file persistence.
 
+The project can now run as a desktop app through Electron, with automatic local file persistence and no browser startup flow.
+
 ## Features
 
 - Multiple boards (create, switch, rename with double-click, delete)
@@ -49,6 +51,18 @@ npm install
 npm run dev
 ```
 
+Do not open `index.html` directly from disk. This is a Vite app, and opening it over `file://` can trigger browser CORS or ES module loading errors.
+
+Use the localhost URL printed by Vite instead.
+
+### Desktop app
+
+```bash
+npm start
+```
+
+That builds the frontend and opens TaskTrack in its own desktop window.
+
 ### 3) Build for production
 
 ```bash
@@ -64,8 +78,11 @@ npm run preview
 ## Usage notes
 
 1. Open the app.
-2. Click **Open data file** and select your `notes.json` (or another `.json` file).
-3. Start creating boards/tasks.
+2. In the desktop app, data is saved automatically to the app data folder.
+3. In the web version, click **Open data file** and select your `notes.json` (or another `.json` file).
+4. Start creating boards/tasks.
+
+If the browser says the app is blocked by CORS, you are almost certainly opening the app the wrong way. Run `npm run dev` or `npm run preview` and use the served URL instead of opening the HTML file directly.
 
 ## Keyboard / interaction highlights
 
@@ -78,6 +95,8 @@ npm run preview
 ## Project structure
 
 - [index.html](index.html)
+- [electron/main.js](electron/main.js)
+- [electron/preload.cjs](electron/preload.cjs)
 - [src/main.js](src/main.js)
 - [src/styles.css](src/styles.css)
 - [package.json](package.json)

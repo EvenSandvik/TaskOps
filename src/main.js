@@ -431,16 +431,20 @@ const restoreConnectedDataFile = async () => {
       desktopStorageMeta = result;
 
       if (result?.encryptionError) {
-        window.alert('Could not decrypt the local TaskTrack data file. This can happen if the file was copied from another OS account. A fresh local file will be created.');
+        window.alert('Could not decrypt the local TaskTrack data file. This can happen if the file was copied from another OS account. TaskTrack will not overwrite your data file automatically.');
         loadDefaultState();
-        await persistStateToFile();
         return true;
       }
 
       if (result?.state) {
         restoreStateFromFile(result.state);
       } else if (typeof result?.rawState === 'string' && result.rawState.trim()) {
-        restoreStateFromFile(JSON.parse(result.rawState));
+        try {
+          restoreStateFromFile(JSON.parse(result.rawState));
+        } catch {
+          window.alert('TaskTrack found data but could not parse it. Your file was not changed automatically.');
+          loadDefaultState();
+        }
       } else {
         loadDefaultState();
         await persistStateToFile();

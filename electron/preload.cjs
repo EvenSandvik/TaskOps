@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld('taskTrackDesktop', {
   loadState: (filePath) => ipcRenderer.invoke('tasktrack:load-state', filePath),
   saveState: (payload) => ipcRenderer.invoke('tasktrack:save-state', payload),
   listFiles: () => ipcRenderer.invoke('tasktrack:list-files'),
-  createFile: (fileName) => ipcRenderer.invoke('tasktrack:create-file', fileName),
+  createFile: (payload) => ipcRenderer.invoke('tasktrack:create-file', payload),
+  deleteFile: (filePath) => ipcRenderer.invoke('tasktrack:delete-file', filePath),
 });

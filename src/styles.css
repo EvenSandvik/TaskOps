@@ -1094,45 +1094,77 @@ body.is-dragging-task .trash-zone {
   min-height: 100vh;
   display: grid;
   align-content: start;
-  gap: 16px;
-  padding: 34px;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(148, 163, 184, 0.10), transparent 40%),
-    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.08), transparent 38%),
-    #f8fafc;
+  gap: 14px;
+  padding: 22px 26px;
+  background: #ffffff;
 }
 
 .desktop-file-picker-header {
   max-width: 980px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .desktop-file-picker-title {
   margin: 0;
-  font-size: 1.4rem;
-  color: #0f172a;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #1f2937;
 }
 
 .desktop-file-picker-subtitle {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: #64748b;
-  font-size: 0.94rem;
+  font-size: 0.84rem;
 }
 
 .desktop-file-picker-actions {
   width: min(980px, 100%);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
+.desktop-file-picker-create-toggle {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.82rem;
+}
+
+.desktop-file-picker-create-form {
+  width: min(980px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
 .desktop-file-picker-name-input {
-  height: 42px;
+  height: 36px;
   border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 0 12px;
+  border-radius: 8px;
+  padding: 0 10px;
   background: #ffffff;
   color: #111827;
   outline: none;
+  font-size: 0.84rem;
+}
+
+.desktop-file-picker-description-input {
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: #111827;
+  outline: none;
+  font-size: 0.84rem;
 }
 
 .desktop-file-picker-name-input:focus {
@@ -1140,23 +1172,45 @@ body.is-dragging-task .trash-zone {
   box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
 }
 
+.desktop-file-picker-description-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+}
+
+.desktop-file-picker-create-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .desktop-file-picker-create {
-  border: 1px solid #dbeafe;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-radius: 10px;
-  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 7px 10px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 0.82rem;
+}
+
+.desktop-file-picker-create-cancel {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.82rem;
 }
 
 .desktop-file-picker-list {
   margin: 0;
   width: min(980px, 100%);
-  padding: 0;
+  padding: 0 0 4px;
   list-style: none;
   display: grid;
-  gap: 8px;
+  gap: 0;
   max-height: calc(100vh - 220px);
   overflow: auto;
 }
@@ -1165,16 +1219,42 @@ body.is-dragging-task .trash-zone {
   margin: 0;
 }
 
+.desktop-file-picker-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: stretch;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 4px 0;
+}
+
 .desktop-file-picker-open {
   width: 100%;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 10px 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
   text-align: left;
   display: grid;
-  gap: 4px;
+  gap: 2px;
   cursor: pointer;
+}
+
+.desktop-file-picker-delete {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  border-radius: 8px;
+  width: 42px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.desktop-file-picker-delete:hover {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
 }
 
 .desktop-file-picker-open:hover {
@@ -1183,21 +1263,28 @@ body.is-dragging-task .trash-zone {
 }
 
 .desktop-file-picker-name {
-  color: #0f172a;
+  color: #1f2937;
   font-weight: 600;
+  font-size: 0.88rem;
 }
 
 .desktop-file-picker-meta {
   color: #64748b;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
+}
+
+.desktop-file-picker-description {
+  color: #475569;
+  font-size: 0.78rem;
 }
 
 .desktop-file-picker-empty {
   border: 1px dashed #cbd5e1;
   color: #64748b;
-  border-radius: 12px;
-  padding: 14px;
-  text-align: center;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: left;
+  font-size: 0.84rem;
 }
 
 .trash-zone.is-over {
@@ -1213,6 +1300,27 @@ body.is-dragging-task .trash-zone {
 }
 
 @media (max-width: 720px) {
+  .desktop-file-picker-shell {
+    padding: 20px 14px;
+  }
+
+  .desktop-file-picker-create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .desktop-file-picker-create-actions {
+    justify-content: flex-start;
+  }
+
+  .desktop-file-picker-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .desktop-file-picker-delete {
+    width: 100%;
+    height: 38px;
+  }
+
   .left-menu {
     width: 220px;
     padding: 76px 12px 12px;

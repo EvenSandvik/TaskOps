@@ -284,10 +284,11 @@ const createNewDataFile = async (_event, payload) => {
 
 const deleteStoredFile = async (_event, requestedPath) => {
   if (typeof requestedPath !== 'string' || !requestedPath.trim()) {
+    const catalog = await listCatalogFiles();
     return {
       deleted: false,
-      files: (await listCatalogFiles()).files,
-      recentFilePath: (await listCatalogFiles()).recentFilePath,
+      files: catalog.files,
+      recentFilePath: catalog.recentFilePath,
     };
   }
 
@@ -296,10 +297,11 @@ const deleteStoredFile = async (_event, requestedPath) => {
   const isInsideDataDirectory = targetPath === dataDirectory || targetPath.startsWith(`${dataDirectory}${path.sep}`);
 
   if (!isInsideDataDirectory || !targetPath.toLowerCase().endsWith('.json')) {
+    const catalog = await listCatalogFiles();
     return {
       deleted: false,
-      files: (await listCatalogFiles()).files,
-      recentFilePath: (await listCatalogFiles()).recentFilePath,
+      files: catalog.files,
+      recentFilePath: catalog.recentFilePath,
     };
   }
 

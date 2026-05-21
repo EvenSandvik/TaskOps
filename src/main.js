@@ -49,7 +49,9 @@ let desktopFiles = [];
 let desktopRecentFilePath = null;
 let desktopActiveFilePath = null;
 let isDesktopFilePickerVisible = false;
+let isDesktopCreateFormVisible = false;
 let desktopNewFileNameDraft = '';
+let desktopNewFileDescriptionDraft = '';
 let hasRegisteredGlobalClickHandlers = false;
 
 const FILE_HANDLE_DB_NAME = 'tasktrack-file-handle-db';
@@ -437,18 +439,46 @@ const openDesktopFile = async (filePath) => {
   render();
 };
 
-const createAndOpenDesktopFile = async (fileName = '') => {
+const createAndOpenDesktopFile = async ({ fileName = '', description = '' } = {}) => {
   if (!isDesktopApp) {
     return;
   }
 
-  const created = await desktopApi.createFile(fileName);
+  const created = await desktopApi.createFile({
+    name: fileName,
+    description,
+  });
   if (Array.isArray(created?.files)) {
     desktopFiles = created.files;
   }
   desktopRecentFilePath = typeof created?.recentFilePath === 'string' ? created.recentFilePath : desktopRecentFilePath;
+  isDesktopCreateFormVisible = false;
   desktopNewFileNameDraft = '';
+  desktopNewFileDescriptionDraft = '';
   await openDesktopFile(created?.path);
+};
+
+const deleteDesktopFile = async (filePath) => {
+  if (!isDesktopApp || typeof filePath !== 'string' || !filePath) {
+    return;
+  }
+
+  const targetFile = desktopFiles.find((file) => file.path === filePath);
+  const targetName = targetFile?.fileName ?? 'this note file';
+  const shouldDelete = window.confirm(`Are you sure you want to delete "${targetName}"? This cannot be undone.`);
+  if (!shouldDelete) {
+    return;
+  }
+
+  const result = await desktopApi.deleteFile(filePath);
+  desktopFiles = Array.isArray(result?.files) ? result.files : [];
+  desktopRecentFilePath = typeof result?.recentFilePath === 'string' ? result.recentFilePath : null;
+
+  if (desktopActiveFilePath === filePath) {
+    desktopActiveFilePath = null;
+  }
+
+  render();
 };
 
 const loadDefaultState = () => {
@@ -1375,10 +1405,16 @@ const render = () => {
             const isRecent = file.path === desktopRecentFilePath;
             return `
               <li class="desktop-file-picker-item">
-                <button class="desktop-file-picker-open" type="button" data-open-desktop-file data-file-path="${escapeHtml(file.path)}">
-                  <span class="desktop-file-picker-name">${escapeHtml(file.fileName ?? 'Untitled')}</span>
-                  <span class="desktop-file-picker-meta">${isRecent ? 'Recent · ' : ''}${escapeHtml(getDesktopFileDisplayTime(file))}</span>
-                </button>
+                <div class="desktop-file-picker-item-row">
+                  <button class="desktop-file-picker-open" type="button" data-open-desktop-file data-file-path="${escapeHtml(file.path)}">
+                    <span class="desktop-file-picker-name">${escapeHtml(file.fileName ?? 'Untitled')}</span>
+                    <span class="desktop-file-picker-meta">${isRecent ? 'Recent · ' : ''}${escapeHtml(getDesktopFileDisplayTime(file))}</span>
+                    ${file?.description ? `<span class="desktop-file-picker-description">${escapeHtml(file.description)}</span>` : ''}
+                  </button>
+                  <button class="desktop-file-picker-delete" type="button" aria-label="Delete note file" title="Delete note file" data-delete-desktop-file data-file-path="${escapeHtml(file.path)}">
+                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                  </button>
+                </div>
               </li>
             `;
           })
@@ -1389,20 +1425,37 @@ const render = () => {
       <main class="desktop-file-picker-shell">
         <header class="desktop-file-picker-header">
           <h1 class="desktop-file-picker-title">Choose a TaskTrack file</h1>
-          <p class="desktop-file-picker-subtitle">Open a recent file or create a new one.</p>
+          <p class="desktop-file-picker-subtitle">Open a recent note repo, create a new one, or delete an old file.</p>
         </header>
 
         <section class="desktop-file-picker-actions">
+          <button class="desktop-file-picker-create-toggle" type="button" data-toggle-create-desktop-file>${isDesktopCreateFormVisible ? 'Close create form' : 'Create new note repo'}</button>
+        </section>
+
+        ${isDesktopCreateFormVisible
+    ? `<section class="desktop-file-picker-create-form" data-desktop-create-form>
           <input
             class="desktop-file-picker-name-input"
             type="text"
-            placeholder="File name"
+            placeholder="Repo name"
             value="${escapeHtml(desktopNewFileNameDraft)}"
-            aria-label="New file name"
+            aria-label="New repo name"
             data-desktop-file-name
           />
-          <button class="desktop-file-picker-create" type="button" data-create-desktop-file>Create file</button>
-        </section>
+          <input
+            class="desktop-file-picker-description-input"
+            type="text"
+            placeholder="Description (optional)"
+            value="${escapeHtml(desktopNewFileDescriptionDraft)}"
+            aria-label="New repo description"
+            data-desktop-file-description
+          />
+          <div class="desktop-file-picker-create-actions">
+            <button class="desktop-file-picker-create" type="button" data-create-desktop-file>Create</button>
+            <button class="desktop-file-picker-create-cancel" type="button" data-cancel-create-desktop-file>Cancel</button>
+          </div>
+        </section>`
+    : ''}
 
         <ul class="desktop-file-picker-list">
           ${fileItemsHtml}
@@ -1410,7 +1463,13 @@ const render = () => {
       </main>
     `;
 
+    document.querySelector('[data-toggle-create-desktop-file]')?.addEventListener('click', () => {
+      isDesktopCreateFormVisible = !isDesktopCreateFormVisible;
+      render();
+    });
+
     const desktopFileNameInput = document.querySelector('[data-desktop-file-name]');
+    const desktopFileDescriptionInput = document.querySelector('[data-desktop-file-description]');
     if (desktopFileNameInput instanceof HTMLInputElement) {
       desktopFileNameInput.addEventListener('input', (event) => {
         desktopNewFileNameDraft = event.currentTarget.value;
@@ -1418,14 +1477,42 @@ const render = () => {
       desktopFileNameInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
           event.preventDefault();
-          void createAndOpenDesktopFile(desktopFileNameInput.value);
+          void createAndOpenDesktopFile({
+            fileName: desktopFileNameInput.value,
+            description: desktopFileDescriptionInput instanceof HTMLInputElement ? desktopFileDescriptionInput.value : desktopNewFileDescriptionDraft,
+          });
+        }
+      });
+    }
+
+    if (desktopFileDescriptionInput instanceof HTMLInputElement) {
+      desktopFileDescriptionInput.addEventListener('input', (event) => {
+        desktopNewFileDescriptionDraft = event.currentTarget.value;
+      });
+      desktopFileDescriptionInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          void createAndOpenDesktopFile({
+            fileName: desktopFileNameInput instanceof HTMLInputElement ? desktopFileNameInput.value : desktopNewFileNameDraft,
+            description: desktopFileDescriptionInput.value,
+          });
         }
       });
     }
 
     document.querySelector('[data-create-desktop-file]')?.addEventListener('click', () => {
       const fileName = desktopFileNameInput instanceof HTMLInputElement ? desktopFileNameInput.value : desktopNewFileNameDraft;
-      void createAndOpenDesktopFile(fileName);
+      const description = desktopFileDescriptionInput instanceof HTMLInputElement
+        ? desktopFileDescriptionInput.value
+        : desktopNewFileDescriptionDraft;
+      void createAndOpenDesktopFile({ fileName, description });
+    });
+
+    document.querySelector('[data-cancel-create-desktop-file]')?.addEventListener('click', () => {
+      isDesktopCreateFormVisible = false;
+      desktopNewFileNameDraft = '';
+      desktopNewFileDescriptionDraft = '';
+      render();
     });
 
     document.querySelectorAll('[data-open-desktop-file]').forEach((element) => {
@@ -1433,6 +1520,15 @@ const render = () => {
         const filePath = event.currentTarget.dataset.filePath;
         if (filePath) {
           void openDesktopFile(filePath);
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-delete-desktop-file]').forEach((element) => {
+      element.addEventListener('click', (event) => {
+        const filePath = event.currentTarget.dataset.filePath;
+        if (filePath) {
+          void deleteDesktopFile(filePath);
         }
       });
     });
